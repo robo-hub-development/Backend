@@ -1,0 +1,2 @@
+# Entry point for hosts that look for a root requirements.txt (e.g. Render's default build).
+-r requirements/production.txt
