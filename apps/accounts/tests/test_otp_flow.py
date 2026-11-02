@@ -213,3 +213,40 @@ class TestFixedDevelopmentCode:
             monkeypatch.setenv(key, value)
         production = importlib.import_module("config.settings.production")
         assert production.OTP_FIXED_CODE == ""
+
+
+class TestProductionEmailSettings:
+    def _load(self, monkeypatch, **env):
+        import importlib
+
+        base = {
+            "DJANGO_SECRET_KEY": "x" * 60,
+            "DJANGO_ALLOWED_HOSTS": "api.example.com",
+            "DATABASE_URL": "postgres://u:p@localhost:5432/db",
+        }
+        for key in ("EMAIL_HOST", "DEFAULT_FROM_EMAIL"):
+            monkeypatch.delenv(key, raising=False)
+        for key, value in {**base, **env}.items():
+            monkeypatch.setenv(key, value)
+        return importlib.reload(importlib.import_module("config.settings.production"))
+
+    def test_boots_without_email_and_falls_back_to_console(self, monkeypatch):
+        production = self._load(monkeypatch)
+        assert production.EMAIL_BACKEND.endswith("console.EmailBackend")
+        assert production.DEFAULT_FROM_EMAIL == "no-reply@robohub.local"
+
+    def test_uses_smtp_when_host_is_set(self, monkeypatch):
+        production = self._load(
+            monkeypatch, EMAIL_HOST="smtp.example.com", DEFAULT_FROM_EMAIL="a@example.com"
+        )
+        assert production.EMAIL_BACKEND.endswith("smtp.EmailBackend")
+        assert production.DEFAULT_FROM_EMAIL == "a@example.com"
+
+    def test_deploy_check_warns_when_email_is_console_in_production(self, settings):
+        from apps.common.checks import email_is_configured
+
+        settings.DEBUG = False
+        settings.EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+        assert [w.id for w in email_is_configured(None)] == ["robohub.W001"]
+        settings.EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+        assert email_is_configured(None) == []
