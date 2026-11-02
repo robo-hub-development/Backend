@@ -37,3 +37,15 @@ def test_mixin_sets_creator_once_and_modifier_always():
 
 def test_mixin_marks_audit_fields_readonly():
     assert "created_by" in _Admin().get_readonly_fields(None)
+
+
+def test_base_models_use_uuid_primary_keys():
+    import uuid
+
+    from apps.accounts.models import AuthToken, OtpChallenge, User
+    from apps.common.models import TimeStampedModel
+
+    for model in (User, OtpChallenge, AuthToken, TimeStampedModel, AuditModel):
+        pk = model._meta.pk
+        assert pk.name == "id" and pk.get_internal_type() == "UUIDField"
+        assert pk.default is uuid.uuid4

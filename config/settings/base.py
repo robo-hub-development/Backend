@@ -30,10 +30,13 @@ DJANGO_APPS = [
 THIRD_PARTY_APPS = [
     "rest_framework",
     "corsheaders",
+    "drf_spectacular",
 ]
 # Feature apps are appended here as each phase lands.
 LOCAL_APPS = [
     "apps.common",
+    "apps.accounts",
+    "apps.catalog",
 ]
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
@@ -75,6 +78,19 @@ DATABASES["default"]["ATOMIC_REQUESTS"] = False  # transactions are explicit in 
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=60)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+AUTH_USER_MODEL = "accounts.User"
+
+# OTP / session settings
+# Development shortcut: when set, every OTP is this value. Must stay empty outside local settings.
+OTP_FIXED_CODE = ""
+OTP_TTL_SECONDS = env.int("OTP_TTL_SECONDS", default=120)
+OTP_MAX_ATTEMPTS = env.int("OTP_MAX_ATTEMPTS", default=5)
+OTP_RESEND_COOLDOWN_SECONDS = env.int("OTP_RESEND_COOLDOWN_SECONDS", default=30)
+AUTH_TOKEN_TTL_SECONDS = env.int("AUTH_TOKEN_TTL_SECONDS", default=604800)  # 7 days
+# Session tokens are HS256 JWTs. Rotating the key signs every user out.
+JWT_SIGNING_KEY = env("JWT_SIGNING_KEY", default=SECRET_KEY)
+JWT_ALGORITHM = "HS256"
+JWT_ISSUER = env("JWT_ISSUER", default="robohub-api")
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -92,6 +108,9 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+# Product media upload limits (also set the reverse-proxy body size to at least the video limit).
+CATALOG_MAX_IMAGE_BYTES = env.int("CATALOG_MAX_IMAGE_BYTES", default=5 * 1024 * 1024)
+CATALOG_MAX_VIDEO_BYTES = env.int("CATALOG_MAX_VIDEO_BYTES", default=100 * 1024 * 1024)
 
 # CORS: the storefront calls public GET endpoints from the browser; everything
 # authenticated goes through the Next.js BFF (server-to-server).
@@ -99,22 +118,24 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[SITE_URL])
 CORS_ALLOW_CREDENTIALS = False
 
 REST_FRAMEWORK = {
-    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    "DEFAULT_RENDERER_CLASSES": ["apps.common.renderers.EnvelopeJSONRenderer"],
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
     "DEFAULT_PAGINATION_CLASS": "apps.common.pagination.StandardPagination",
     "EXCEPTION_HANDLER": "apps.common.exceptions.api_exception_handler",
-    # Token authentication is added in the accounts phase.
-    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_AUTHENTICATION_CLASSES": ["apps.accounts.authentication.BearerTokenAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.AllowAny"],
     "DEFAULT_THROTTLE_CLASSES": [],
     "DEFAULT_THROTTLE_RATES": {
-        "otp_send": env("THROTTLE_OTP_SEND", default="5/hour"),
-        "otp_verify": env("THROTTLE_OTP_VERIFY", default="20/hour"),
+        "otp_send": env("THROTTLE_OTP_SEND", default="30/hour"),
+        "otp_verify": env("THROTTLE_OTP_VERIFY", default="60/hour"),
         "newsletter": env("THROTTLE_NEWSLETTER", default="10/hour"),
     },
     "DEFAULT_VERSIONING_CLASS": "rest_framework.versioning.NamespaceVersioning",
     "DEFAULT_VERSION": DEFAULT_API_VERSION,
     "ALLOWED_VERSIONS": tuple(API_VERSIONS),
+    # Behind a proxy/BFF, set NUM_PROXIES so per-IP throttles see the real client address.
+    "NUM_PROXIES": env.int("NUM_PROXIES", default=None),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "UNAUTHENTICATED_USER": None,
 }
 
@@ -132,4 +153,25 @@ LOGGING = {
         # Never log request bodies/headers here: they carry OTPs and tokens.
         "django.request": {"handlers": ["console"], "level": "WARNING", "propagate": False},
     },
+}
+
+# API documentation (OpenAPI via drf-spectacular). Off unless enabled; never expose publicly by accident.
+API_DOCS_ENABLED = env.bool("API_DOCS_ENABLED", default=False)
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Stem Robo Hub API",
+    "DESCRIPTION": (
+        "Backend API for the Stem Robo Hub storefront.\n\n"
+        "**Auth:** call `POST /auth/otp/send` then `POST /auth/otp/verify`, then send "
+        "`Authorization: Bearer <token>` on routes marked with a lock.\n\n"
+        '**Errors:** non-2xx responses return `{"message": str, "errors": {field: [str]}}`.'
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SORT_OPERATIONS": False,
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "apps.common.api_docs.wrap_envelope",  # documents the {success, data, error} wrapper
+    ],
+    "SWAGGER_UI_SETTINGS": {"persistAuthorization": True, "displayRequestDuration": True},
 }

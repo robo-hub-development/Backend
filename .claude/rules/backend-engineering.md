@@ -20,7 +20,8 @@ Always-on rules for all backend work in this repo. For the full workflow, checkl
 - Comments explain *why*, not *what*.
 
 ## Django / DRF
-- Models: domain data, constraints, focused methods. Always create and review migrations; consider locking on large tables and staged changes.
+- Models: inherit `apps.common.models.TimeStampedModel`/`AuditModel` (UUID primary keys, never sequential IDs; use `<uuid:pk>` in URLs). Domain data, constraints, focused methods. Always create and review migrations; consider locking on large tables and staged changes.
+- API responses are wrapped by `EnvelopeJSONRenderer` as `{success, data, error}`; views return plain data or raise exceptions, never hand-build the envelope.
 - Serializers: validation, normalization, representation only.
 - Views/ViewSets: HTTP concerns, permissions, call services/selectors, consistent status codes. Paginate large lists.
 - Prevent N+1 (`select_related`/`prefetch_related`), push filtering/aggregation to the DB, parameterize any raw SQL, check `EXPLAIN` before optimizing.

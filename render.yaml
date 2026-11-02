@@ -1,0 +1,42 @@
+# Render Blueprint (optional): New + > Blueprint. Or copy these values into an existing service's settings.
+services:
+  - type: web
+    name: robo-hub-api
+    runtime: python
+    plan: free
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 60"
+    healthCheckPath: /health/
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: JWT_SIGNING_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: robo-hub-db
+          property: connectionString
+      - key: DJANGO_ALLOWED_HOSTS
+        sync: false # e.g. robo-hub-api.onrender.com
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false # e.g. https://robo-hub-api.onrender.com
+      - key: SITE_URL
+        sync: false # storefront origin, e.g. https://your-store.vercel.app
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false # same storefront origin
+      - key: EMAIL_HOST
+        sync: false # SMTP host that sends the OTP emails
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
+
+databases:
+  - name: robo-hub-db
+    plan: free

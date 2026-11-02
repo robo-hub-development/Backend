@@ -40,6 +40,8 @@ def api_exception_handler(exc, context):
         if "detail" in errors:
             message = errors.pop("detail")[0]
         response.data = {"message": message, "errors": errors} if errors else {"message": message}
+    elif response.status_code == status.HTTP_404_NOT_FOUND:
+        response.data = {"message": "Not found."}  # never echo model names / lookups
     else:
         detail = data.get("detail") if isinstance(data, dict) else None
         response.data = {"message": str(detail) if detail else "Request failed."}

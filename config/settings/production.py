@@ -20,3 +20,16 @@ EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
+
+# Hard-coded off: a fixed OTP would let anyone log in as any customer.
+OTP_FIXED_CODE = ""
+
+# Static files (admin CSS/JS, Swagger assets) are served by WhiteNoise from STATIC_ROOT after `collectstatic`.
+MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")  # noqa: F405 - right after SecurityMiddleware
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
+
+# Admin login over https behind Render's proxy, e.g. https://robo-hub-api.onrender.com
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])

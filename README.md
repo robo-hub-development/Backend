@@ -10,7 +10,9 @@ createdb robohub              # or any Postgres database named in DATABASE_URL
 .venv/bin/python manage.py migrate
 .venv/bin/python manage.py runserver
 ```
-Health check: `GET /health/`. API root: `/api/v1/`. Admin: `/admin/`.
+API docs (local): Swagger UI at `/api/docs/` (or `/api/v1/docs/`), ReDoc at `/api/v1/redoc/`, raw OpenAPI at `/api/v1/schema/`. Disabled in production unless `API_DOCS_ENABLED=true`. Every new endpoint must be annotated with `@extend_schema` (tags, request, responses incl. errors).
+
+Health checks: `GET /api/v1/health` (enveloped, documented in Swagger, reports the database check; 503 when it fails) and `GET /health/` (plain `{"status": "ok"}` for load balancers). API root: `/api/v1/`. Admin: `/admin/`.
 
 ## Commands
 | Command | Purpose |
@@ -25,3 +27,11 @@ Health check: `GET /health/`. API root: `/api/v1/`. Admin: `/admin/`.
 - `config/api/versions.py` registers API versions; `config/api/v1.py` holds v1 routes (each feature app adds one entry). To add v2: create `config/api/v2.py` and register it.
 - `apps/common/` — shared kernel (pagination envelope, error format, throttles, base model, health).
 - Feature apps (added per phase) follow one shape: `models.py`, `services.py` (commands), `selectors.py` (reads), `api/` (views, serializers, urls), `admin.py`, `tests/`.
+
+## Response format
+Every JSON response from `/api/<version>/` (rendered by `apps.common.renderers.EnvelopeJSONRenderer`) uses one envelope; HTTP status codes are unchanged and `204` responses are empty.
+```json
+{ "success": true,  "data": { "...payload..." }, "error": null }
+{ "success": false, "data": null, "error": { "message": "Please correct the highlighted fields.", "errors": { "email": ["Enter a valid email address."] } } }
+```
+Paginated lists keep `{items, page, pageSize, total, totalPages}` inside `data`. `/health/` is a plain probe and is not wrapped. Views and services return plain data or raise exceptions; never build the envelope by hand.

@@ -1,9 +1,20 @@
+import uuid
+
 from django.conf import settings
 from django.db import models
 
 
-class TimeStampedModel(models.Model):
-    """Abstract base adding creation/update timestamps (for records with no human author)."""
+class UUIDModel(models.Model):
+    """Abstract base giving every model a non-guessable UUID primary key (no sequential IDs in URLs)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    class Meta:
+        abstract = True
+
+
+class TimeStampedModel(UUIDModel):
+    """Default base for feature models: UUID primary key plus creation/update timestamps."""
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

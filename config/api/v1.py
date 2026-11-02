@@ -1,6 +1,11 @@
-"""Routes for API v1. Each feature app adds one entry, e.g.:
+"""Routes for API v1. Each feature app adds one entry."""
 
-path("", include("apps.catalog.api.urls")),
-"""
+from django.urls import include, path
 
-urlpatterns: list = []
+from apps.common.views import HealthView
+
+urlpatterns = [
+    path("health", HealthView.as_view(), name="api-health"),
+    path("auth/", include("apps.accounts.api.urls")),
+    path("", include("apps.catalog.api.urls")),
+]
