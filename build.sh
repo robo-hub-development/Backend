@@ -9,3 +9,7 @@ pip install --upgrade pip
 pip install -r requirements/production.txt
 python manage.py collectstatic --no-input
 python manage.py migrate --no-input
+
+# First admin without shell access (Render free). Set DJANGO_SUPERUSER_EMAIL/_NAME/_MOBILE/_PASSWORD once;
+# it is a no-op afterwards. A bad value must not block the deploy, so only warn.
+python manage.py ensure_superuser || echo "WARNING: could not create the admin user; see the message above."

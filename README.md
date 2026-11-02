@@ -35,3 +35,8 @@ Every JSON response from `/api/<version>/` (rendered by `apps.common.renderers.E
 { "success": false, "data": null, "error": { "message": "Please correct the highlighted fields.", "errors": { "email": ["Enter a valid email address."] } } }
 ```
 Paginated lists keep `{items, page, pageSize, total, totalPages}` inside `data`. `/health/` is a plain probe and is not wrapped. Views and services return plain data or raise exceptions; never build the envelope by hand.
+
+## Deploying on Render (free plan)
+- Build Command `./build.sh`; Start Command `gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 60`; `DATABASE_URL` = the Render Postgres **Internal** URL; `DJANGO_SETTINGS_MODULE=config.settings.production`.
+- No shell on the free plan: set `DJANGO_SUPERUSER_EMAIL`, `DJANGO_SUPERUSER_NAME`, `DJANGO_SUPERUSER_MOBILE`, `DJANGO_SUPERUSER_PASSWORD` once; `build.sh` runs `manage.py ensure_superuser` (idempotent) to create the first admin. Delete the password variable afterwards.
+- Alternatively run `createsuperuser` from your machine with `DATABASE_URL` set to the database's **External** URL.

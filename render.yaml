@@ -37,6 +37,16 @@ services:
       - key: DEFAULT_FROM_EMAIL
         sync: false
 
+      # First admin (free plan has no shell). Remove the password variable once you can log in.
+      - key: DJANGO_SUPERUSER_EMAIL
+        sync: false
+      - key: DJANGO_SUPERUSER_NAME
+        sync: false
+      - key: DJANGO_SUPERUSER_MOBILE
+        sync: false
+      - key: DJANGO_SUPERUSER_PASSWORD
+        sync: false
+
 databases:
   - name: robo-hub-db
     plan: free
