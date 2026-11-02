@@ -46,6 +46,7 @@ if settings.API_DOCS_ENABLED:
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("health/", health, name="health"),
+    path("health", health),  # Render and some probes call it without the trailing slash (no redirect)
     *docs_patterns,
     *api_patterns,
 ]

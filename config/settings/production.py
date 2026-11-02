@@ -2,7 +2,12 @@ from .base import *  # noqa: F403
 from .base import env
 
 DEBUG = False
-ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS")  # required in production
+ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
+# Render injects the service's public hostname; trusting it means the health check and the default
+# *.onrender.com URL work without extra configuration. Custom domains go in DJANGO_ALLOWED_HOSTS.
+RENDER_EXTERNAL_HOSTNAME = env("RENDER_EXTERNAL_HOSTNAME", default="")
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 # No localhost fallback in production: a missing DATABASE_URL must fail loudly with its name.
 DATABASES["default"] = {  # noqa: F405
@@ -46,3 +51,5 @@ STORAGES = {
 
 # Admin login over https behind Render's proxy, e.g. https://robo-hub-api.onrender.com
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+if RENDER_EXTERNAL_HOSTNAME:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{RENDER_EXTERNAL_HOSTNAME}")

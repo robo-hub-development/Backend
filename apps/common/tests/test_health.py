@@ -41,3 +41,24 @@ def test_check_database_never_raises():
 
     with mock.patch("apps.common.health.connection.cursor", side_effect=RuntimeError("boom")):
         assert check_database() is False
+
+
+def test_plain_probe_works_without_trailing_slash_and_without_redirect(client):
+    response = client.get("/health")
+    assert response.status_code == 200 and response.json() == {"status": "ok"}
+
+
+def test_production_trusts_the_render_hostname(monkeypatch):
+    import importlib
+
+    for key, value in {
+        "DJANGO_SECRET_KEY": "x" * 60,
+        "DATABASE_URL": "postgres://u:p@localhost:5432/db",
+        "RENDER_EXTERNAL_HOSTNAME": "backend-w586.onrender.com",
+    }.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.delenv("DJANGO_ALLOWED_HOSTS", raising=False)
+    monkeypatch.delenv("CSRF_TRUSTED_ORIGINS", raising=False)
+    production = importlib.reload(importlib.import_module("config.settings.production"))
+    assert "backend-w586.onrender.com" in production.ALLOWED_HOSTS
+    assert "https://backend-w586.onrender.com" in production.CSRF_TRUSTED_ORIGINS
