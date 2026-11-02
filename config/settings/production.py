@@ -4,7 +4,14 @@ from .base import env
 DEBUG = False
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS")  # required in production
 
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# No localhost fallback in production: a missing DATABASE_URL must fail loudly with its name.
+DATABASES["default"] = {  # noqa: F405
+    **env.db("DATABASE_URL"),
+    "ATOMIC_REQUESTS": False,  # transactions are explicit in services
+    "CONN_MAX_AGE": env.int("DB_CONN_MAX_AGE", default=60),
+}
+
+SECURE_PROXY_SSL_HEADER =("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
