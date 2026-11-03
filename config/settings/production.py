@@ -1,3 +1,5 @@
+from django.core.exceptions import ImproperlyConfigured
+
 from .base import *  # noqa: F403
 from .base import env
 
@@ -39,8 +41,13 @@ EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="no-reply@robohub.local")
 
-# Hard-coded off: a fixed OTP would let anyone log in as any customer.
-OTP_FIXED_CODE = ""
+# A fixed OTP lets anyone who knows an email log in as that user. It is OFF unless the deliberately named
+# INSECURE_FIXED_OTP variable is set (testing deployments only), and a deploy check warns while it is on.
+# The ordinary OTP_FIXED_CODE variable is ignored in production.
+INSECURE_FIXED_OTP = env("INSECURE_FIXED_OTP", default="").strip()
+if INSECURE_FIXED_OTP and not (INSECURE_FIXED_OTP.isdigit() and len(INSECURE_FIXED_OTP) == 6):
+    raise ImproperlyConfigured("INSECURE_FIXED_OTP must be exactly 6 digits, e.g. 123456.")
+OTP_FIXED_CODE = INSECURE_FIXED_OTP
 
 # Static files (admin CSS/JS, Swagger assets) are served by WhiteNoise from STATIC_ROOT after `collectstatic`.
 MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")  # noqa: F405 - right after SecurityMiddleware

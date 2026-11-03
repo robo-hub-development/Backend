@@ -2,6 +2,8 @@ from unittest import mock
 
 import pytest
 
+from apps.common.tests import prod_settings
+
 pytestmark = pytest.mark.django_db
 URL = "/api/v1/health"
 
@@ -48,17 +50,15 @@ def test_plain_probe_works_without_trailing_slash_and_without_redirect(client):
     assert response.status_code == 200 and response.json() == {"status": "ok"}
 
 
-def test_production_trusts_the_render_hostname(monkeypatch):
-    import importlib
+def test_production_trusts_the_render_hostname():
+    loaded = prod_settings.load(
+        "ALLOWED_HOSTS", "CSRF_TRUSTED_ORIGINS", RENDER_EXTERNAL_HOSTNAME="backend-w586.onrender.com"
+    )
+    assert "backend-w586.onrender.com" in loaded["ALLOWED_HOSTS"]
+    assert "https://backend-w586.onrender.com" in loaded["CSRF_TRUSTED_ORIGINS"]
 
-    for key, value in {
-        "DJANGO_SECRET_KEY": "x" * 60,
-        "DATABASE_URL": "postgres://u:p@localhost:5432/db",
-        "RENDER_EXTERNAL_HOSTNAME": "backend-w586.onrender.com",
-    }.items():
-        monkeypatch.setenv(key, value)
-    monkeypatch.delenv("DJANGO_ALLOWED_HOSTS", raising=False)
-    monkeypatch.delenv("CSRF_TRUSTED_ORIGINS", raising=False)
-    production = importlib.reload(importlib.import_module("config.settings.production"))
-    assert "backend-w586.onrender.com" in production.ALLOWED_HOSTS
-    assert "https://backend-w586.onrender.com" in production.CSRF_TRUSTED_ORIGINS
+
+def test_production_requires_a_database_url():
+    # .env supplies none of these in a clean subprocess without DATABASE_URL being passed explicitly
+    loaded = prod_settings.load("DATABASES", DATABASE_URL="postgres://u:p@db.example.com:5432/app")
+    assert loaded["DATABASES"]["default"]["HOST"] == "db.example.com"

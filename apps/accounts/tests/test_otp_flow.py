@@ -7,6 +7,7 @@ from django.utils import timezone
 from rest_framework.throttling import SimpleRateThrottle
 
 from apps.accounts.models import AuthToken, OtpChallenge, User
+from apps.common.tests import prod_settings
 
 from .conftest import SEND, VERIFY, last_code, register
 
@@ -200,47 +201,46 @@ class TestFixedDevelopmentCode:
             codes.add(last_code())
         assert len(codes) > 1
 
-    def test_production_settings_force_it_off(self, monkeypatch):
-        import importlib
+    def test_production_ignores_the_ordinary_variable_and_defaults_to_random(self):
+        assert prod_settings.load("OTP_FIXED_CODE", OTP_FIXED_CODE="123456") == {"OTP_FIXED_CODE": ""}
+        assert prod_settings.load("OTP_FIXED_CODE") == {"OTP_FIXED_CODE": ""}
 
-        monkeypatch.setenv("OTP_FIXED_CODE", "123456")
-        for key, value in {
-            "DJANGO_SECRET_KEY": "x" * 60,
-            "DJANGO_ALLOWED_HOSTS": "api.example.com",
-            "EMAIL_HOST": "smtp.example.com",
-            "DEFAULT_FROM_EMAIL": "no-reply@example.com",
-        }.items():
-            monkeypatch.setenv(key, value)
-        production = importlib.import_module("config.settings.production")
-        assert production.OTP_FIXED_CODE == ""
+    def test_production_fixed_code_needs_the_explicit_insecure_variable(self):
+        assert prod_settings.load("OTP_FIXED_CODE", INSECURE_FIXED_OTP="123456") == {
+            "OTP_FIXED_CODE": "123456"
+        }
+
+    @pytest.mark.parametrize("bad", ["12345", "1234567", "abcdef", "12 456"])
+    def test_production_rejects_a_malformed_fixed_code(self, bad):
+        assert prod_settings.load("OTP_FIXED_CODE", INSECURE_FIXED_OTP=bad) == {
+            "error": "ImproperlyConfigured"
+        }
+
+    def test_deploy_check_warns_while_a_fixed_code_is_active(self, settings):
+        from apps.common.checks import fixed_otp_is_off
+
+        settings.DEBUG = False
+        settings.OTP_FIXED_CODE = "123456"
+        assert [w.id for w in fixed_otp_is_off(None)] == ["robohub.W002"]
+        settings.OTP_FIXED_CODE = ""
+        assert fixed_otp_is_off(None) == []
 
 
 class TestProductionEmailSettings:
-    def _load(self, monkeypatch, **env):
-        import importlib
+    def test_boots_without_email_and_falls_back_to_console(self):
+        loaded = prod_settings.load("EMAIL_BACKEND", "DEFAULT_FROM_EMAIL")
+        assert loaded["EMAIL_BACKEND"].endswith("console.EmailBackend")
+        assert loaded["DEFAULT_FROM_EMAIL"] == "no-reply@robohub.local"
 
-        base = {
-            "DJANGO_SECRET_KEY": "x" * 60,
-            "DJANGO_ALLOWED_HOSTS": "api.example.com",
-            "DATABASE_URL": "postgres://u:p@localhost:5432/db",
-        }
-        for key in ("EMAIL_HOST", "DEFAULT_FROM_EMAIL"):
-            monkeypatch.delenv(key, raising=False)
-        for key, value in {**base, **env}.items():
-            monkeypatch.setenv(key, value)
-        return importlib.reload(importlib.import_module("config.settings.production"))
-
-    def test_boots_without_email_and_falls_back_to_console(self, monkeypatch):
-        production = self._load(monkeypatch)
-        assert production.EMAIL_BACKEND.endswith("console.EmailBackend")
-        assert production.DEFAULT_FROM_EMAIL == "no-reply@robohub.local"
-
-    def test_uses_smtp_when_host_is_set(self, monkeypatch):
-        production = self._load(
-            monkeypatch, EMAIL_HOST="smtp.example.com", DEFAULT_FROM_EMAIL="a@example.com"
+    def test_uses_smtp_when_host_is_set(self):
+        loaded = prod_settings.load(
+            "EMAIL_BACKEND",
+            "DEFAULT_FROM_EMAIL",
+            EMAIL_HOST="smtp.example.com",
+            DEFAULT_FROM_EMAIL="a@example.com",
         )
-        assert production.EMAIL_BACKEND.endswith("smtp.EmailBackend")
-        assert production.DEFAULT_FROM_EMAIL == "a@example.com"
+        assert loaded["EMAIL_BACKEND"].endswith("smtp.EmailBackend")
+        assert loaded["DEFAULT_FROM_EMAIL"] == "a@example.com"
 
     def test_deploy_check_warns_when_email_is_console_in_production(self, settings):
         from apps.common.checks import email_is_configured
