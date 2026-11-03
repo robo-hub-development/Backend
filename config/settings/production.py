@@ -56,6 +56,10 @@ STORAGES = {
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
 
+# Uploaded media from local disk (no object storage yet). On Render free the disk is wiped on every deploy,
+# so uploads are temporary. Set SERVE_MEDIA=true to enable; use external storage before launch.
+SERVE_MEDIA = env.bool("SERVE_MEDIA", default=False)
+
 # Admin login over https behind Render's proxy, e.g. https://robo-hub-api.onrender.com
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 if RENDER_EXTERNAL_HOSTNAME:
