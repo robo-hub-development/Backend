@@ -1,4 +1,4 @@
-from rest_framework.throttling import AnonRateThrottle
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
 
 class OtpSendThrottle(AnonRateThrottle):
@@ -11,3 +11,7 @@ class OtpVerifyThrottle(AnonRateThrottle):
 
 class NewsletterThrottle(AnonRateThrottle):
     scope = "newsletter"
+
+
+class OrderPlaceThrottle(UserRateThrottle):
+    scope = "order_place"

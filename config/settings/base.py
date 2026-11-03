@@ -37,6 +37,8 @@ LOCAL_APPS = [
     "apps.common",
     "apps.accounts",
     "apps.catalog",
+    "apps.cart",
+    "apps.orders",
 ]
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
@@ -106,6 +108,9 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# Customers may cancel a pending/confirmed order for this long after placing it (PRD 1.6: limited time).
+ORDER_CANCEL_WINDOW_HOURS = env.int("ORDER_CANCEL_WINDOW_HOURS", default=24)
+
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 # Product media upload limits (also set the reverse-proxy body size to at least the video limit).
@@ -129,6 +134,7 @@ REST_FRAMEWORK = {
         "otp_send": env("THROTTLE_OTP_SEND", default="30/hour"),
         "otp_verify": env("THROTTLE_OTP_VERIFY", default="60/hour"),
         "newsletter": env("THROTTLE_NEWSLETTER", default="10/hour"),
+        "order_place": env("THROTTLE_ORDER_PLACE", default="30/hour"),
     },
     "DEFAULT_VERSIONING_CLASS": "rest_framework.versioning.NamespaceVersioning",
     "DEFAULT_VERSION": DEFAULT_API_VERSION,
