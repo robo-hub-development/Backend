@@ -37,6 +37,14 @@ services:
       - key: DEFAULT_FROM_EMAIL
         sync: false
 
+      # Razorpay (online checkout answers 503 until all three are set)
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+
       # First admin (free plan has no shell). Remove the password variable once you can log in.
       - key: DJANGO_SUPERUSER_EMAIL
         sync: false

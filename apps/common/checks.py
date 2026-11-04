@@ -26,3 +26,18 @@ def fixed_otp_is_off(app_configs, **kwargs):
             )
         ]
     return []
+
+
+@register(deploy=True)
+def payments_are_configured(app_configs, **kwargs):
+    if settings.PAYMENT_GATEWAY == "razorpay" and not (
+        settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET and settings.RAZORPAY_WEBHOOK_SECRET
+    ):
+        return [
+            Warning(
+                "Razorpay is not configured: online checkout answers 503 until it is.",
+                hint="Set RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET and RAZORPAY_WEBHOOK_SECRET.",
+                id="robohub.W003",
+            )
+        ]
+    return []

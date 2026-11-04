@@ -8,6 +8,9 @@ from rest_framework.views import APIView
 from apps.common.api_docs import UNAUTHORIZED, VALIDATION_ERROR, error_response
 from apps.common.throttling import OrderPlaceThrottle
 from apps.orders import selectors, services
+from apps.orders.models import Order
+from apps.payments import services as payment_services
+from apps.payments.api.serializers import RedirectSerializer
 
 from .serializers import CreateOrderSerializer, OrderSerializer, PlacedOrderSerializer
 
@@ -38,24 +41,37 @@ class OrderListCreateView(ListAPIView):
 
     @extend_schema(
         tags=["Orders"],
-        summary="Place an order",
+        summary="Place an order (COD) or start an online payment",
         description="The order is built from the cart lines listed in `cartItems` (live lines of the cart "
-        "named by `cartId`); quantities and prices come from the server. Lines not listed stay in the cart. "
-        "`cod` is allowed only for exactly one line with quantity 1 and creates the order now. "
-        "`online` is not available yet (Razorpay arrives with the payments phase).",
+        "named by `cartId`); quantities and prices come from the server. "
+        "Lines not listed stay in the cart.\n\n"
+        "- `cod`: allowed only for exactly one line with quantity 1; "
+        "creates the order now (**201**, `order`).\n"
+        "- `online`: no order yet. Stock is held, a Razorpay payment link is created and its URL is returned "
+        "(**200**, `redirectUrl`). The order is created when the payment succeeds; poll "
+        "`GET /payments/{reference}` from the return page. **503** when online payments are not configured.",
         request=CreateOrderSerializer,
-        responses={201: PlacedOrderSerializer, 400: VALIDATION_ERROR, 401: UNAUTHORIZED},
+        responses={
+            201: PlacedOrderSerializer,
+            200: RedirectSerializer,
+            400: VALIDATION_ERROR,
+            401: UNAUTHORIZED,
+            502: error_response("The payment gateway failed; nothing was held."),
+            503: error_response("Online payments are not configured."),
+        },
     )
     def post(self, request):
         data = CreateOrderSerializer(data=request.data)
         data.is_valid(raise_exception=True)
-        order = services.place_order(
-            request.user,
-            cart_id=data.validated_data["cart_id"],
-            cart_item_ids=data.validated_data["cart_item_ids"],
-            address=data.validated_data["address"],
-            payment_method=data.validated_data["payment_method"],
-        )
+        args = {
+            "cart_id": data.validated_data["cart_id"],
+            "cart_item_ids": data.validated_data["cart_item_ids"],
+            "address": data.validated_data["address"],
+        }
+        if data.validated_data["payment_method"] == Order.PaymentMethod.ONLINE:
+            attempt = payment_services.start_online_payment(request.user, **args)
+            return Response({"redirectUrl": attempt.short_url})
+        order = services.place_order(request.user, **args)
         order = selectors.get_user_order(request.user, order.pk)
         return Response({"order": _order_data(request, order)}, status=status.HTTP_201_CREATED)
 

@@ -40,3 +40,20 @@ Paginated lists keep `{items, page, pageSize, total, totalPages}` inside `data`.
 - Build Command `./build.sh`; Start Command `gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 60`; `DATABASE_URL` = the Render Postgres **Internal** URL; `DJANGO_SETTINGS_MODULE=config.settings.production`.
 - No shell on the free plan: set `DJANGO_SUPERUSER_EMAIL`, `DJANGO_SUPERUSER_NAME`, `DJANGO_SUPERUSER_MOBILE`, `DJANGO_SUPERUSER_PASSWORD` once; `build.sh` runs `manage.py ensure_superuser` (idempotent) to create the first admin. Delete the password variable afterwards.
 - Alternatively run `createsuperuser` from your machine with `DATABASE_URL` set to the database's **External** URL.
+
+## Online payments (Razorpay Payment Links)
+`POST /api/v1/orders` with `"paymentMethod": "online"` holds the stock, creates a Razorpay payment link and returns
+`{"redirectUrl": ...}`. The order is created only when Razorpay confirms the payment.
+
+1. In the Razorpay dashboard (test mode first) create an API key and a webhook.
+2. Webhook URL: `https://<your-api-host>/api/v1/payments/webhook`; events: `payment_link.paid`,
+   `payment_link.cancelled`, `payment_link.expired`. Copy the webhook secret.
+3. Set `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET` (environment only, never in git).
+   Without them online checkout answers 503 and `manage.py check --deploy` warns (`robohub.W003`).
+4. The shopper returns to `{SITE_URL}/checkout/payment?reference=...`; the page polls
+   `GET /api/v1/payments/<reference>` (`pending` / `success` / `failed`).
+5. Unpaid links expire after `PAYMENT_LINK_EXPIRY_MINUTES` (30). Run `python manage.py expire_payments` on a
+   schedule (e.g. every 15 minutes) as a safety net to release held stock. Render free has no cron, so rely on
+   Razorpay's `payment_link.expired` webhook there, or call it from an external scheduler.
+6. Payments taken but not fulfillable (amount mismatch, stock gone after a late payment) show up in the admin under
+   Payment attempts with status "needs refund"; refund them in the Razorpay dashboard.

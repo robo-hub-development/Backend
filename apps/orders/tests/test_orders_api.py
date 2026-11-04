@@ -245,13 +245,6 @@ class TestPlaceCodOrder:
         assert not Order.objects.exists()
         assert CartItem.objects.filter(ordered_at__isnull=True).count() == 2
 
-    def test_online_is_not_available_yet(self, api):
-        product = make_product(stock_quantity=3)
-        res = place(api, (product, 1), method="online")
-        assert res.status_code == 400
-        assert "paymentMethod" in res.data["errors"]
-        assert not Order.objects.exists()
-
     def test_out_of_stock_rejected_without_side_effects(self, api):
         product = make_product(stock_quantity=0)
         res = place(api, (product, 1))

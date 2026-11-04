@@ -39,6 +39,7 @@ LOCAL_APPS = [
     "apps.catalog",
     "apps.cart",
     "apps.orders",
+    "apps.payments",
     "apps.content",
 ]
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -111,6 +112,16 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 # Customers may cancel a pending/confirmed order for this long after placing it (PRD 1.6: limited time).
 ORDER_CANCEL_WINDOW_HOURS = env.int("ORDER_CANCEL_WINDOW_HOURS", default=24)
+
+# Online payments (Razorpay Payment Links). Keys come from the environment only; without them online
+# checkout answers 503 and a deploy check warns. PAYMENT_GATEWAY=fake is for tests.
+PAYMENT_GATEWAY = env("PAYMENT_GATEWAY", default="razorpay")
+RAZORPAY_KEY_ID = env("RAZORPAY_KEY_ID", default="")
+RAZORPAY_KEY_SECRET = env("RAZORPAY_KEY_SECRET", default="")
+RAZORPAY_WEBHOOK_SECRET = env("RAZORPAY_WEBHOOK_SECRET", default="")
+RAZORPAY_API_BASE = "https://api.razorpay.com/v1"
+# How long a payment link (and the stock reserved for it) stays valid. Razorpay's minimum is 15 minutes.
+PAYMENT_LINK_EXPIRY_MINUTES = env.int("PAYMENT_LINK_EXPIRY_MINUTES", default=30)
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"

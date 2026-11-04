@@ -13,3 +13,6 @@ REST_FRAMEWORK = {
 }
 OTP_RESEND_COOLDOWN_SECONDS = 0
 API_DOCS_ENABLED = True
+
+PAYMENT_GATEWAY = "fake"
+RAZORPAY_WEBHOOK_SECRET = "whsec_test"  # noqa: S105 - test-only value
