@@ -46,6 +46,10 @@ class Order(AuditModel):
     payment_method = models.CharField(max_length=6, choices=PaymentMethod)
     payment_status = models.CharField(max_length=8, choices=PaymentStatus, default=PaymentStatus.PENDING)
     total = models.DecimalField(max_digits=12, decimal_places=2)
+    # The cart this order was placed from (null for orders created without one, e.g. direct item lists).
+    cart = models.ForeignKey(
+        "cart.Cart", null=True, blank=True, on_delete=models.SET_NULL, related_name="orders"
+    )
     cancelled_at = models.DateTimeField(null=True, blank=True, editable=False)
 
     # Delivery address snapshot.
@@ -85,6 +89,10 @@ class OrderItem(TimeStampedModel):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
     # SET_NULL: deleting a product from the catalogue must not erase purchase history.
     product = models.ForeignKey("catalog.Product", null=True, on_delete=models.SET_NULL, related_name="+")
+    # The cart line this item came from, when there was one (the line is kept, marked ordered).
+    cart_item = models.ForeignKey(
+        "cart.CartItem", null=True, blank=True, on_delete=models.SET_NULL, related_name="order_items"
+    )
     product_name = models.CharField(max_length=200)
     product_slug = models.SlugField(max_length=220)
     image = models.CharField(max_length=500, blank=True, help_text="Media URL at purchase time.")

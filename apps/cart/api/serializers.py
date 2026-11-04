@@ -17,6 +17,7 @@ class CartInputSerializer(serializers.Serializer):
 class PricedLineSerializer(serializers.Serializer):
     """Shared shape of a priced line in the cart (read from CartItem rows)."""
 
+    id = serializers.UUIDField(help_text="Cart item id; send these as `cartItems` when ordering.")
     productId = serializers.SerializerMethodField()
     slug = serializers.CharField(source="product.slug")
     name = serializers.CharField(source="product.name")
@@ -36,4 +37,7 @@ class PricedLineSerializer(serializers.Serializer):
 
 
 class CartSerializer(serializers.Serializer):
+    id = serializers.UUIDField(
+        allow_null=True, help_text="Cart id (null until the first PUT); send it as cartId when ordering."
+    )
     items = PricedLineSerializer(many=True)

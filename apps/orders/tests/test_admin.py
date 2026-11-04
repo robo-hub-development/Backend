@@ -31,4 +31,4 @@ def test_orders_are_visible_but_read_only_in_admin(staff_client, api):
         staff_client.post(reverse("admin:orders_order_delete", args=[order.pk]), {"post": "yes"}).status_code
         == 403
     )
-    assert staff_client.get(reverse("admin:cart_cartitem_changelist")).status_code == 200
+    assert staff_client.get(reverse("admin:cart_cart_changelist")).status_code == 200

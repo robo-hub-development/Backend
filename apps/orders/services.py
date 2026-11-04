@@ -4,7 +4,7 @@ from django.db import connection, transaction
 from django.utils import timezone
 from rest_framework.exceptions import NotFound, ValidationError
 
-from apps.cart.models import CartItem
+from apps.cart.models import Cart, CartItem
 from apps.catalog.models import Product
 
 from .models import ORDER_NUMBER_SEQUENCE, Order, OrderItem
@@ -32,35 +32,53 @@ def _main_image_url(product) -> str:
     return image.file.url if image else ""
 
 
-def place_order(user, lines: list[dict], address: dict, payment_method: str) -> Order:
-    """Create an order from `lines` ([{product_id, quantity}]), reserving stock. Only COD is available yet."""
+def place_order(user, cart_id, cart_item_ids, address: dict, payment_method: str) -> Order:
+    """Create an order from the chosen live lines of the caller's cart, reserving stock (COD only for now).
+
+    The client names the cart lines; quantities and prices always come from the cart and the catalogue.
+    """
     if payment_method != Order.PaymentMethod.COD:
         raise ValidationError({"paymentMethod": "Online payment is not available yet."})
-
-    ids = [line["product_id"] for line in lines]
-    if len(set(ids)) != len(ids):
-        raise ValidationError({"items": "Each product may appear only once."})
-    # PRD 1.4: cash on delivery is for one piece only.
-    if not (len(lines) == 1 and lines[0]["quantity"] == 1):
-        raise _fail("Cash on delivery is available only for a single item.")
+    # A client-supplied cart id is never trusted: it must be the caller's own cart.
+    cart = Cart.objects.filter(pk=cart_id, user=user).first()
+    if cart is None:
+        raise ValidationError({"cartId": "Unknown cart."})
 
     with transaction.atomic():
-        products = _lock_products(ids)
+        # Locking the cart serialises double-submits: the second request finds the lines already ordered.
+        Cart.objects.select_for_update().get(pk=cart.pk)
+        cart_lines = list(
+            CartItem.objects.select_for_update()
+            .filter(cart=cart, pk__in=cart_item_ids, ordered_at__isnull=True)
+            .select_related("product")
+            .order_by("product_id")
+        )
+        # Foreign, unknown and already-ordered ids all look the same: not a live line of this cart.
+        if len(cart_lines) != len(set(cart_item_ids)):
+            raise ValidationError(
+                {"cartItems": "Some cart items are not in your cart or were already ordered."}
+            )
+        # PRD 1.4: cash on delivery is for one piece only.
+        if not (len(cart_lines) == 1 and cart_lines[0].quantity == 1):
+            raise _fail("Cash on delivery is available only for a single item.")
+
+        products = _lock_products([line.product_id for line in cart_lines])
         total = Decimal(0)
-        items = []
-        for line in lines:
-            product = products.get(line["product_id"])
+        purchases = []
+        for line in cart_lines:
+            product = products.get(line.product_id)
             if product is None:
-                raise _fail("A product in your order is no longer available.")
-            if product.stock_quantity < line["quantity"]:
+                raise _fail("A product in your cart is no longer available.")
+            if product.stock_quantity < line.quantity:
                 raise _fail(f"{product.name} is out of stock.")
-            product.stock_quantity -= line["quantity"]  # safe: the row is locked until commit
+            product.stock_quantity -= line.quantity  # safe: the row is locked until commit
             product.save(update_fields=["stock_quantity", "updated_at"])
-            total += product.price * line["quantity"]
-            items.append((product, line["quantity"]))
+            total += product.price * line.quantity
+            purchases.append((product, line))
 
         order = Order.objects.create(
             user=user,
+            cart=cart,
             number=_next_order_number(),
             payment_method=payment_method,
             total=total,
@@ -78,15 +96,16 @@ def place_order(user, lines: list[dict], address: dict, payment_method: str) -> 
             OrderItem(
                 order=order,
                 product=product,
+                cart_item=line,
                 product_name=product.name,
                 product_slug=product.slug,
                 image=_main_image_url(product),
                 unit_price=product.price,
-                quantity=quantity,
+                quantity=line.quantity,
             )
-            for product, quantity in items
+            for product, line in purchases
         )
-        CartItem.objects.filter(user=user, product_id__in=ids).delete()
+        CartItem.objects.filter(pk__in=[line.pk for line in cart_lines]).update(ordered_at=timezone.now())
     return order
 
 

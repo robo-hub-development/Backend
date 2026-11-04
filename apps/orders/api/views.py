@@ -39,7 +39,9 @@ class OrderListCreateView(ListAPIView):
     @extend_schema(
         tags=["Orders"],
         summary="Place an order",
-        description="`cod` is allowed only for exactly one line with quantity 1 and creates the order now. "
+        description="The order is built from the cart lines listed in `cartItems` (live lines of the cart "
+        "named by `cartId`); quantities and prices come from the server. Lines not listed stay in the cart. "
+        "`cod` is allowed only for exactly one line with quantity 1 and creates the order now. "
         "`online` is not available yet (Razorpay arrives with the payments phase).",
         request=CreateOrderSerializer,
         responses={201: PlacedOrderSerializer, 400: VALIDATION_ERROR, 401: UNAUTHORIZED},
@@ -49,7 +51,8 @@ class OrderListCreateView(ListAPIView):
         data.is_valid(raise_exception=True)
         order = services.place_order(
             request.user,
-            lines=data.validated_data["items"],
+            cart_id=data.validated_data["cart_id"],
+            cart_item_ids=data.validated_data["cart_item_ids"],
             address=data.validated_data["address"],
             payment_method=data.validated_data["payment_method"],
         )

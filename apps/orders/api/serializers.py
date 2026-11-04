@@ -1,7 +1,6 @@
 from rest_framework import serializers
 
 from apps.accounts.validators import validate_mobile
-from apps.cart.api.serializers import CartLineInputSerializer
 from apps.orders.models import Order
 
 
@@ -49,9 +48,21 @@ class AddressSerializer(serializers.Serializer):
 
 
 class CreateOrderSerializer(serializers.Serializer):
-    items = CartLineInputSerializer(many=True, min_length=1, max_length=50)
+    cartId = serializers.UUIDField(source="cart_id", help_text="The caller's cart (id from GET /cart).")
+    cartItems = serializers.ListField(
+        child=serializers.UUIDField(),
+        source="cart_item_ids",
+        min_length=1,
+        max_length=50,
+        help_text="Ids of the cart lines to order (from GET /cart). Other lines stay in the cart.",
+    )
     address = AddressSerializer()
     paymentMethod = serializers.ChoiceField(choices=Order.PaymentMethod.values, source="payment_method")
+
+    def validate_cartItems(self, value):
+        if len(set(value)) != len(value):
+            raise serializers.ValidationError("Each cart item may appear only once.")
+        return value
 
 
 class PlacedOrderSerializer(serializers.Serializer):

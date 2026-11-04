@@ -7,7 +7,7 @@ class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
     can_delete = False
-    fields = ("product_name", "unit_price", "quantity")
+    fields = ("product_name", "unit_price", "quantity", "cart_item")
     readonly_fields = fields
 
     def has_add_permission(self, request, obj=None):

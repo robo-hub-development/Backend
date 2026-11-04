@@ -25,13 +25,36 @@ ADDRESS = {
 }
 
 
-def place(api, *lines, method="cod", address=None):
+def fill_cart(api, *lines) -> str:
+    """Put the lines into the caller's server cart through the API and return the cart id."""
+    res = api.put(
+        "/api/v1/cart",
+        {"items": [{"productId": str(p.pk), "quantity": q} for p, q in lines]},
+        format="json",
+    )
+    assert res.status_code == 200, res.data
+    return res.data["id"]
+
+
+def live_line_ids(cart_id) -> list[str]:
+    lines = CartItem.objects.filter(cart_id=cart_id, ordered_at__isnull=True)
+    return [str(pk) for pk in lines.values_list("pk", flat=True)]
+
+
+def order_from(api, cart_id, *, cart_items=None, method="cod", address=None):
+    """Order from `cart_id`; by default every live line of that cart is listed in `cartItems`."""
     body = {
-        "items": [{"productId": str(p.pk), "quantity": q} for p, q in lines],
+        "cartId": str(cart_id),
+        "cartItems": live_line_ids(cart_id) if cart_items is None else cart_items,
         "address": address or ADDRESS,
         "paymentMethod": method,
     }
     return api.post(URL, body, format="json")
+
+
+def place(api, *lines, method="cod", address=None):
+    """Fill the cart with `lines`, then order from it."""
+    return order_from(api, fill_cart(api, *lines), method=method, address=address)
 
 
 @pytest.mark.django_db
@@ -81,12 +104,131 @@ class TestPlaceCodOrder:
         assert numbers[0] >= 1001
         assert numbers[1] == numbers[0] + 1
 
-    def test_placing_removes_only_the_ordered_product_from_the_cart(self, api, member):
-        ordered, other = make_product(), make_product()
-        CartItem.objects.create(user=member, product=ordered, quantity=1)
-        CartItem.objects.create(user=member, product=other, quantity=2)
-        place(api, (ordered, 1))
-        assert list(CartItem.objects.values_list("product_id", flat=True)) == [other.pk]
+    def test_order_is_built_from_the_cart_and_consumes_its_lines(self, api, member):
+        product = make_product(price=250)
+        cart_id = fill_cart(api, (product, 1))
+        line = CartItem.objects.get()
+
+        res = order_from(api, cart_id)
+
+        assert res.status_code == 201
+        order = Order.objects.get()
+        assert str(order.cart_id) == cart_id
+        assert order.items.get().cart_item == line
+        assert order.total == 250
+        line.refresh_from_db()
+        assert line.ordered_at is not None  # kept as history, not deleted
+        assert api.get("/api/v1/cart").data["items"] == []
+
+    def test_items_in_the_payload_are_ignored(self, api):
+        in_cart, other = make_product(), make_product()
+        cart_id = fill_cart(api, (in_cart, 1))
+        body = {
+            "cartId": cart_id,
+            "cartItems": live_line_ids(cart_id),
+            "items": [{"productId": str(other.pk), "quantity": 1}],
+            "address": ADDRESS,
+            "paymentMethod": "cod",
+        }
+        assert api.post(URL, body, format="json").status_code == 201
+        assert Order.objects.get().items.get().product == in_cart
+
+    def test_cart_id_is_required(self, api):
+        fill_cart(api, (make_product(), 1))
+        res = api.post(URL, {"address": ADDRESS, "paymentMethod": "cod"}, format="json")
+        assert res.status_code == 400
+        assert "cartId" in res.data["errors"]
+
+    def test_cart_items_are_required_and_not_empty(self, api):
+        cart_id = fill_cart(api, (make_product(), 1))
+        body = {"cartId": cart_id, "address": ADDRESS, "paymentMethod": "cod"}
+        assert "cartItems" in api.post(URL, body, format="json").data["errors"]
+        assert order_from(api, cart_id, cart_items=[]).status_code == 400
+        assert not Order.objects.exists()
+
+    def test_double_submit_creates_one_order_and_takes_stock_once(self, api):
+        product = make_product(stock_quantity=3)
+        cart_id = fill_cart(api, (product, 1))
+        ordered_ids = live_line_ids(cart_id)
+        assert order_from(api, cart_id).status_code == 201
+        again = order_from(api, cart_id, cart_items=ordered_ids)
+        assert again.status_code == 400
+        assert "cartItems" in again.data["errors"]
+        assert Order.objects.count() == 1
+        product.refresh_from_db()
+        assert product.stock_quantity == 2
+
+    def test_cart_of_another_user_is_rejected_without_side_effects(self, api, other_member):
+        product = make_product(stock_quantity=4)
+        foreign_id = fill_cart(client_for(other_member), (product, 1))
+        res = order_from(api, foreign_id)
+        assert res.status_code == 400
+        assert "cartId" in res.data["errors"]
+        assert not Order.objects.exists()
+        product.refresh_from_db()
+        assert product.stock_quantity == 4
+        assert CartItem.objects.get().ordered_at is None
+
+    def test_unknown_or_malformed_cart_id(self, api):
+        import uuid
+
+        ids = live_line_ids(fill_cart(api, (make_product(), 1)))
+        assert order_from(api, uuid.uuid4(), cart_items=ids).status_code == 400
+        assert order_from(api, "not-a-uuid", cart_items=ids).status_code == 400
+        assert not Order.objects.exists()
+
+    def test_only_the_listed_cart_items_are_ordered_and_mapped(self, api):
+        wanted, left = make_product(price=300), make_product(price=40)
+        cart_id = fill_cart(api, (wanted, 1), (left, 2))
+        wanted_line = CartItem.objects.get(product=wanted)
+
+        res = order_from(api, cart_id, cart_items=[str(wanted_line.pk)])
+
+        assert res.status_code == 201
+        item = OrderItem.objects.get()
+        assert item.cart_item == wanted_line  # the listed id is mapped straight onto the order item
+        assert Order.objects.get().total == 300
+        wanted_line.refresh_from_db()
+        assert wanted_line.ordered_at is not None
+        assert CartItem.objects.get(product=left).ordered_at is None
+        assert [i["productId"] for i in api.get("/api/v1/cart").data["items"]] == [str(left.pk)]
+
+    def test_cart_item_of_another_users_cart_is_rejected(self, api, other_member):
+        mine = fill_cart(api, (make_product(), 1))
+        theirs = fill_cart(client_for(other_member), (make_product(stock_quantity=4), 1))
+        foreign_line = live_line_ids(theirs)
+        res = order_from(api, mine, cart_items=foreign_line)
+        assert res.status_code == 400
+        assert "cartItems" in res.data["errors"]
+        assert not Order.objects.exists()
+        assert CartItem.objects.filter(ordered_at__isnull=False).count() == 0
+
+    def test_unknown_duplicate_and_already_ordered_cart_items_are_rejected(self, api):
+        import uuid
+
+        product = make_product(stock_quantity=5)
+        cart_id = fill_cart(api, (product, 1))
+        (line_id,) = live_line_ids(cart_id)
+        assert order_from(api, cart_id, cart_items=[str(uuid.uuid4())]).status_code == 400
+        assert order_from(api, cart_id, cart_items=[line_id, line_id]).status_code == 400
+        assert order_from(api, cart_id, cart_items=[line_id, str(uuid.uuid4())]).status_code == 400
+        assert not Order.objects.exists()
+        product.refresh_from_db()
+        assert product.stock_quantity == 5
+        assert order_from(api, cart_id, cart_items=[line_id]).status_code == 201
+        assert order_from(api, cart_id, cart_items=[line_id]).status_code == 400  # now already ordered
+
+    def test_product_can_be_added_again_after_it_was_ordered(self, api):
+        product = make_product(stock_quantity=5)
+        place(api, (product, 1))
+        assert api.get("/api/v1/cart").data["items"] == []
+        assert fill_cart(api, (product, 3))
+        assert api.get("/api/v1/cart").data["items"][0]["quantity"] == 3
+
+    def test_deleting_a_cart_line_keeps_the_order_item(self, api):
+        place(api, (make_product(), 1))
+        CartItem.objects.get().delete()
+        assert OrderItem.objects.get().cart_item is None
 
     def test_cod_rejects_quantity_above_one(self, api):
         product = make_product(stock_quantity=9)
@@ -97,10 +239,11 @@ class TestPlaceCodOrder:
         product.refresh_from_db()
         assert product.stock_quantity == 9
 
-    def test_cod_rejects_multiple_lines(self, api):
+    def test_cod_rejects_multiple_lines_and_leaves_the_cart_alone(self, api):
         res = place(api, (make_product(), 1), (make_product(), 1))
         assert res.status_code == 400
         assert not Order.objects.exists()
+        assert CartItem.objects.filter(ordered_at__isnull=True).count() == 2
 
     def test_online_is_not_available_yet(self, api):
         product = make_product(stock_quantity=3)
@@ -116,10 +259,16 @@ class TestPlaceCodOrder:
         assert "out of stock" in res.data["message"]
         assert not Order.objects.exists()
 
-    def test_inactive_and_unknown_products_rejected(self, api):
-        res = place(api, (make_product(is_active=False), 1))
+    def test_product_deactivated_after_being_added_cannot_be_ordered(self, api):
+        product = make_product(stock_quantity=2)
+        cart_id = fill_cart(api, (product, 1))
+        product.is_active = False
+        product.save()
+        res = order_from(api, cart_id)
         assert res.status_code == 400
         assert not Order.objects.exists()
+        product.refresh_from_db()
+        assert product.stock_quantity == 2
 
     def test_rolls_back_stock_if_a_later_step_fails(self, api, monkeypatch):
         product = make_product(stock_quantity=3)
@@ -272,3 +421,41 @@ def test_concurrent_orders_for_the_last_unit_sell_it_only_once(member, other_mem
     product.refresh_from_db()
     assert product.stock_quantity == 0
     assert Order.objects.count() == 1
+
+
+@pytest.mark.django_db
+def test_one_order_can_hold_many_cart_items(api, member):
+    """The schema is multi-line; only the COD rule limits COD orders (online orders arrive in Phase 5)."""
+    first, second = make_product(price=100), make_product(price=50)
+    cart_id = fill_cart(api, (first, 2), (second, 3))
+    lines = {line.product_id: line for line in CartItem.objects.all()}
+    order = Order.objects.create(
+        user=member,
+        cart_id=cart_id,
+        number=999001,
+        payment_method=Order.PaymentMethod.ONLINE,
+        total=Decimal(350),
+        ship_full_name="A",
+        ship_mobile="9876543210",
+        ship_line1="x",
+        ship_city="c",
+        ship_state="s",
+        ship_pincode="560001",
+    )
+    for product in (first, second):
+        line = lines[product.pk]
+        OrderItem.objects.create(
+            order=order,
+            product=product,
+            cart_item=line,
+            product_name=product.name,
+            product_slug=product.slug,
+            unit_price=product.price,
+            quantity=line.quantity,
+        )
+
+    assert order.items.count() == 2
+    assert {item.cart_item_id for item in order.items.all()} == {line.pk for line in lines.values()}
+    data = api.get(f"{URL}/{order.pk}").data
+    assert [i["quantity"] for i in data["items"]] == [2, 3]
+    assert data["total"] == 350

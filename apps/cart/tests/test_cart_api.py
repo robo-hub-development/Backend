@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 from rest_framework.test import APIClient
 
-from apps.cart.models import CartItem
+from apps.cart.models import Cart, CartItem
 from apps.catalog.tests.conftest import make_product
 
 from .conftest import client_for
@@ -26,13 +26,15 @@ class TestCartApi:
     def test_empty_cart(self, api):
         res = api.get(URL)
         assert res.status_code == 200
-        assert res.data == {"items": []}
+        assert res.data == {"id": None, "items": []}
 
     def test_put_returns_priced_lines_from_the_database(self, api):
         product = make_product("ESP32 DevKit", price=599)
         res = put(api, (product, 2))
         assert res.status_code == 200
+        assert res.data["id"] == str(Cart.objects.get().pk)
         (line,) = res.data["items"]
+        assert line["id"] == str(CartItem.objects.get().pk)
         assert line["productId"] == str(product.pk)
         assert line["slug"] == product.slug
         assert line["name"] == "ESP32 DevKit"
@@ -55,7 +57,7 @@ class TestCartApi:
 
     def test_empty_items_clears_the_cart(self, api):
         put(api, (make_product(), 1))
-        assert put(api).data == {"items": []}
+        assert put(api).data["items"] == []
         assert CartItem.objects.count() == 0
 
     @pytest.mark.parametrize("quantity", [0, 11, -1])
@@ -92,7 +94,7 @@ class TestCartApi:
         put(api, (product, 1))
         product.is_active = False
         product.save()
-        assert api.get(URL).data == {"items": []}
+        assert api.get(URL).data["items"] == []
 
     def test_price_changes_are_reflected(self, api):
         product = make_product(price=100)
@@ -103,14 +105,31 @@ class TestCartApi:
 
     def test_carts_are_private(self, api, other_member):
         put(api, (make_product(), 1))
-        assert client_for(other_member).get(URL).data == {"items": []}
+        assert client_for(other_member).get(URL).data["items"] == []
 
     def test_constraints_hold_at_the_database_level(self, member):
         from django.db import IntegrityError, transaction
 
+        cart = Cart.objects.create(user=member)
         product = make_product()
         with pytest.raises(IntegrityError), transaction.atomic():
-            CartItem.objects.create(user=member, product=product, quantity=11)
-        CartItem.objects.create(user=member, product=product, quantity=1)
+            CartItem.objects.create(cart=cart, product=product, quantity=11)
+        CartItem.objects.create(cart=cart, product=product, quantity=1)
         with pytest.raises(IntegrityError), transaction.atomic():
-            CartItem.objects.create(user=member, product=product, quantity=2)
+            CartItem.objects.create(cart=cart, product=product, quantity=2)
+        # An ordered line is history: the same product may be live in the cart again.
+        CartItem.objects.filter(cart=cart).update(ordered_at="2026-01-01T00:00:00Z")
+        CartItem.objects.create(cart=cart, product=product, quantity=2)
+
+    def test_one_cart_per_user_reused_across_puts(self, api, member):
+        put(api, (make_product(), 1))
+        put(api, (make_product(), 1))
+        assert Cart.objects.filter(user=member).count() == 1
+
+    def test_put_leaves_ordered_history_alone(self, api, member):
+        cart = Cart.objects.create(user=member)
+        product = make_product()
+        CartItem.objects.create(cart=cart, product=product, quantity=1, ordered_at="2026-01-01T00:00:00Z")
+        res = put(api, (product, 2))
+        assert [i["quantity"] for i in res.data["items"]] == [2]
+        assert CartItem.objects.filter(cart=cart).count() == 2
