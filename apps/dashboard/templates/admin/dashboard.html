@@ -1,0 +1,112 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{% block coltype %}colM{% endblock %}
+
+{% block nav-sidebar %}{% include "admin/nav_sidebar.html" %}{% endblock %}
+
+{% block extrastyle %}{{ block.super }}
+<style>
+  .rh { display: grid; gap: 20px; margin-bottom: 28px; }
+  .rh h2 { margin: 0 0 12px; font-size: 15px; font-weight: 600; text-transform: none; background: none; color: var(--body-fg); padding: 0; }
+  .rh-grid { display: grid; gap: 16px; }
+  .rh-kpis { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .rh-two { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+  .rh-card { background: var(--body-bg); border: 1px solid var(--hairline-color, var(--border-color)); border-radius: 10px; padding: 16px; }
+  .rh-kpi small { display: block; color: var(--body-quiet-color); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .rh-kpi strong { display: block; font-size: 24px; margin: 4px 0; }
+  .rh-kpi span { color: var(--body-quiet-color); font-size: 12px; }
+  .rh-up { color: var(--message-success-bg, #2a7); } .rh-down { color: var(--error-fg, #c33); }
+  .rh-chart { display: flex; align-items: flex-end; gap: 4px; height: 190px; padding-top: 8px; }
+  .rh-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; height: 100%; }
+  .rh-bar-wrap { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+  .rh-bar { width: 100%; background: var(--primary); border-radius: 3px 3px 0 0; opacity: .85; min-height: 0; }
+  .rh-col:hover .rh-bar { opacity: 1; }
+  .rh-label { font-size: 10px; color: var(--body-quiet-color); margin-top: 6px; white-space: nowrap; min-height: 14px; }
+  .rh-label { min-height: 14px; }
+  .rh-row { display: grid; grid-template-columns: 150px 1fr 40px; gap: 8px; align-items: center; margin: 6px 0; font-size: 13px; }
+  .rh-track { background: var(--darkened-bg); border-radius: 4px; height: 10px; overflow: hidden; }
+  .rh-fill { background: var(--primary); height: 100%; }
+  .rh-alerts { display: flex; flex-wrap: wrap; gap: 10px; }
+  .rh-alert { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; text-decoration: none; }
+  .rh-alert b { font-size: 16px; margin-right: 4px; }
+  .rh-alert.hot { border-color: var(--error-fg, #c33); }
+  .rh table { width: 100%; }
+  /* Admin CSS pins .dashboard #content to 600px; let it use the space next to the sidebar. */
+  .dashboard #content, #content.colM { width: auto; max-width: none; }
+  #content-related { float: none; position: static; width: auto; margin: 8px 0 24px; background: none; clear: both; }
+  #content-related .module { max-width: 520px; }
+  .rh td.num, .rh th.num { text-align: right; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if dashboard %}
+<div class="rh">
+
+  <div class="rh-grid rh-kpis">
+    <div class="rh-card rh-kpi"><small>Revenue today</small><strong>₹{{ dashboard.totals.revenue_today|floatformat:2 }}</strong><span>{{ dashboard.totals.orders_today }} order{{ dashboard.totals.orders_today|pluralize }}</span></div>
+    <div class="rh-card rh-kpi"><small>Revenue this month</small><strong>₹{{ dashboard.totals.revenue_month|floatformat:2 }}</strong>
+      <span>{{ dashboard.totals.orders_month }} order{{ dashboard.totals.orders_month|pluralize }}
+      {% if dashboard.month_change is not None %}· <b class="{% if dashboard.month_change >= 0 %}rh-up{% else %}rh-down{% endif %}">{% if dashboard.month_change >= 0 %}▲{% else %}▼{% endif %} {{ dashboard.month_change }}%</b> vs last month{% endif %}</span></div>
+    <div class="rh-card rh-kpi"><small>Revenue this year</small><strong>₹{{ dashboard.totals.revenue_year|floatformat:2 }}</strong><span>{{ dashboard.totals.orders_year }} order{{ dashboard.totals.orders_year|pluralize }}</span></div>
+    <div class="rh-card rh-kpi"><small>All-time revenue</small><strong>₹{{ dashboard.totals.revenue_all|floatformat:2 }}</strong><span>{{ dashboard.totals.orders_all }} orders · avg ₹{{ dashboard.average_order_value|floatformat:2 }}</span></div>
+    <div class="rh-card rh-kpi"><small>Customers</small><strong>{{ dashboard.customers.total }}</strong><span>{{ dashboard.customers.new_this_month }} new this month</span></div>
+  </div>
+
+  <div class="rh-card">
+    <h2>Needs attention</h2>
+    <div class="rh-alerts">
+      <a class="rh-alert {% if dashboard.attention.to_accept %}hot{% endif %}" href="{% url 'admin:orders_order_changelist' %}?status__exact=pending"><b>{{ dashboard.attention.to_accept }}</b> orders to accept</a>
+      <a class="rh-alert" href="{% url 'admin:orders_order_changelist' %}?status__exact=awaiting_payment"><b>{{ dashboard.attention.awaiting_payment }}</b> awaiting payment</a>
+      <a class="rh-alert" href="{% url 'admin:orders_order_changelist' %}?payment_status__exact=refund_in_progress"><b>{{ dashboard.attention.refunds_in_progress }}</b> refunds in progress</a>
+      <a class="rh-alert {% if dashboard.attention.needs_refund %}hot{% endif %}" href="{% url 'admin:payments_payment_changelist' %}?status__exact=needs_refund"><b>{{ dashboard.attention.needs_refund }}</b> payments need a manual refund</a>
+      <a class="rh-alert {% if dashboard.attention.low_stock %}hot{% endif %}" href="{% url 'admin:catalog_product_changelist' %}"><b>{{ dashboard.attention.low_stock }}</b> products low on stock (≤ {{ dashboard.low_stock_at }})</a>
+    </div>
+  </div>
+
+  <div class="rh-grid rh-two">
+    <div class="rh-card"><h2>Monthly revenue (last 12 months)</h2>{% include "admin/_bar_chart.html" with bars=dashboard.monthly title="Monthly revenue" %}</div>
+    <div class="rh-card"><h2>Yearly revenue</h2>{% include "admin/_bar_chart.html" with bars=dashboard.yearly title="Yearly revenue" %}</div>
+  </div>
+
+  <div class="rh-card">
+    <h2>Daily revenue (last {{ dashboard.days_shown }} days)</h2>
+    {% include "admin/_bar_chart.html" with bars=dashboard.daily title="Daily revenue" every_nth=5 %}
+  </div>
+
+  <div class="rh-grid rh-two">
+    <div class="rh-card">
+      <h2>Orders by status</h2>
+      {% for row in dashboard.statuses %}
+        <div class="rh-row"><span>{{ row.label }}</span><div class="rh-track"><div class="rh-fill" style="width: {{ row.width }}%"></div></div><b>{{ row.count }}</b></div>
+      {% endfor %}
+    </div>
+    <div class="rh-card">
+      <h2>Top products (last {{ dashboard.days_shown }} days)</h2>
+      {% if dashboard.top_products %}
+      <table><thead><tr><th>Product</th><th class="num">Units</th><th class="num">Revenue</th></tr></thead><tbody>
+        {% for p in dashboard.top_products %}<tr><td>{{ p.product_name }}</td><td class="num">{{ p.units }}</td><td class="num">₹{{ p.revenue|floatformat:2 }}</td></tr>{% endfor %}
+      </tbody></table>
+      {% else %}<p>No sales in this period yet.</p>{% endif %}
+      <h2 style="margin-top:18px">Low stock</h2>
+      {% if dashboard.low_stock_products %}
+      <table><tbody>
+        {% for p in dashboard.low_stock_products %}<tr><td><a href="{% url 'admin:catalog_product_change' p.pk %}">{{ p.name }}</a></td><td class="num">{{ p.stock_quantity }} left</td></tr>{% endfor %}
+      </tbody></table>
+      {% else %}<p>Every active product has enough stock.</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="rh-card">
+    <h2>Recent orders</h2>
+    <table><thead><tr><th>Order</th><th>Customer</th><th>Status</th><th>Payment</th><th class="num">Total</th><th>Placed</th></tr></thead><tbody>
+      {% for o in dashboard.recent_orders %}
+        <tr><td><a href="{% url 'admin:orders_order_change' o.pk %}">{{ o.order_number }}</a></td><td>{{ o.user.email }}</td><td>{{ o.get_status_display }}</td><td>{{ o.get_payment_status_display }}</td><td class="num">₹{{ o.total|floatformat:2 }}</td><td>{{ o.created_at|date:"d M Y, H:i" }}</td></tr>
+      {% empty %}<tr><td colspan="6">No orders yet.</td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+
+</div>
+{% endif %}
+{% endblock %}

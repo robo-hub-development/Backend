@@ -1,0 +1,14 @@
+{% extends "notifications/email/base.html" %}
+{% block title %}Order {{ order.order_number }} shipped{% endblock %}
+{% block content %}
+<p style="margin:0 0 14px;">Good news: your order <b>{{ order.order_number }}</b> has been handed to our delivery partner and is on its way.</p>
+{% if order.courier_name or order.tracking_number %}
+{% include "notifications/email/_delivery.html" %}
+{% if order.tracking_number %}<p style="margin:0 0 14px;">Use the tracking number on {% if order.courier_name %}{{ order.courier_name }}'s{% else %}the delivery partner's{% endif %} website to see where your parcel is.</p>{% endif %}
+{% else %}
+<p style="margin:0 0 14px;">We will send you the tracking details as soon as we have them.</p>
+{% endif %}
+{% include "notifications/email/_summary.html" %}
+{% if invoice.cash_due %}<p style="margin:10px 0 0;">Please keep <b>₹{{ invoice.cash_due|floatformat:2 }}</b> ready: you pay it to the delivery person when the parcel arrives.</p>{% endif %}
+{% include "notifications/email/_button.html" %}
+{% endblock %}

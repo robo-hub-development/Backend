@@ -384,10 +384,14 @@ class TestCancel:
 
     def test_transition_map(self):
         S = Order.Status
+        assert Order.TRANSITIONS[S.AWAITING_PAYMENT] == {S.PENDING, S.CONFIRMED, S.CANCELLED, S.EXPIRED}
         assert Order.TRANSITIONS[S.PENDING] == {S.CONFIRMED, S.CANCELLED}
         assert Order.TRANSITIONS[S.CONFIRMED] == {S.SHIPPED, S.CANCELLED}
-        assert Order.TRANSITIONS[S.SHIPPED] == {S.DELIVERED}
-        assert not Order.TRANSITIONS[S.DELIVERED] and not Order.TRANSITIONS[S.CANCELLED]
+        assert Order.TRANSITIONS[S.SHIPPED] == {S.DELIVERED, S.RTO}
+        assert Order.TRANSITIONS[S.EXPIRED] == {S.PENDING, S.CONFIRMED}  # only a late payment revives it
+        for terminal in (S.DELIVERED, S.CANCELLED, S.RTO):
+            assert not Order.TRANSITIONS[terminal]
+        assert set(Order.TRANSITIONS) == set(S)  # no status is missing from the map
 
 
 @pytest.mark.django_db(transaction=True)
@@ -427,6 +431,7 @@ def test_one_order_can_hold_many_cart_items(api, member):
         cart_id=cart_id,
         number=999001,
         payment_method=Order.PaymentMethod.ONLINE,
+        subtotal=Decimal(350),
         total=Decimal(350),
         ship_full_name="A",
         ship_mobile="9876543210",

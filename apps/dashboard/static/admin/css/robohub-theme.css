@@ -1,0 +1,194 @@
+/* Stem Robo Hub admin theme. A palette is five colours (--rh-*); everything else is derived from them, so a new
+   palette is one small block below. The picker in the header sets <html data-palette="...">; the light/dark
+   toggle (Django's own) sets <html data-theme="...">, and the two combine. Loaded after admin's base.css. */
+
+/* ---- Palettes: navy = header/primary, navy-2 = secondary, accent = buttons/highlights, link = text links ---- */
+:root, html[data-palette="robohub"] {
+  --rh-navy: #03244f; --rh-navy-2: #0a3470; --rh-accent: #fe6b03; --rh-accent-dark: #d85a00; --rh-link: #0a56c2;
+}
+html[data-palette="ocean"] {
+  --rh-navy: #0b3c5d; --rh-navy-2: #14587f; --rh-accent: #00a8c6; --rh-accent-dark: #008aa3; --rh-link: #0a6fa8;
+}
+html[data-palette="forest"] {
+  --rh-navy: #14352a; --rh-navy-2: #1f5240; --rh-accent: #e9a100; --rh-accent-dark: #c58700; --rh-link: #1a7a4c;
+}
+html[data-palette="violet"] {
+  --rh-navy: #2a1a5e; --rh-navy-2: #3d2a85; --rh-accent: #ff5c8a; --rh-accent-dark: #e04372; --rh-link: #5b3fd1;
+}
+html[data-palette="graphite"] {
+  --rh-navy: #1f2937; --rh-navy-2: #374151; --rh-accent: #10b981; --rh-accent-dark: #0e9f6e; --rh-link: #2563eb;
+}
+
+/* ---- Light mode (default) ---- */
+:root {
+  --rh-radius: 10px;
+
+  --primary: var(--rh-navy);
+  --secondary: var(--rh-navy-2);
+  --accent: var(--rh-accent);
+  --primary-fg: #fff;
+
+  --body-bg: #fff;
+  --body-fg: #1b2433;
+  --body-quiet-color: #5b6678;
+  --body-medium-color: #3d485b;
+  --body-loud-color: #0b1526;
+
+  --header-color: #dbe6f5;
+  --header-branding-color: #fff;
+  --header-bg: var(--rh-navy);
+  --header-link-color: #fff;
+
+  --breadcrumbs-fg: #c5d3e8;
+  --breadcrumbs-link-fg: #fff;
+  --breadcrumbs-bg: var(--rh-navy-2);
+
+  --link-fg: var(--rh-link);
+  --link-hover-color: var(--rh-accent-dark);
+  --link-selected-fg: var(--rh-navy);
+
+  --hairline-color: color-mix(in srgb, var(--rh-navy) 10%, #fff);
+  --border-color: color-mix(in srgb, var(--rh-navy) 18%, #fff);
+  --darkened-bg: color-mix(in srgb, var(--rh-navy) 5%, #fff);
+  --selected-bg: color-mix(in srgb, var(--rh-accent) 14%, #fff);
+  --selected-row: color-mix(in srgb, var(--rh-accent) 14%, #fff);
+
+  --button-fg: #fff;
+  --button-bg: var(--rh-navy);
+  --button-hover-bg: var(--rh-navy-2);
+  --default-button-bg: var(--rh-accent);
+  --default-button-hover-bg: var(--rh-accent-dark);
+  --close-button-bg: #5b6678;
+  --close-button-hover-bg: #3d485b;
+  --delete-button-bg: #c62828;
+  --delete-button-hover-bg: #a31f1f;
+
+  --object-tools-fg: #fff;
+  --object-tools-bg: var(--rh-navy);
+  --object-tools-hover-bg: var(--rh-navy-2);
+
+  --message-success-bg: #e3f6ea;
+  --message-warning-bg: #fff4d6;
+  --message-error-bg: #fde7e7;
+  --error-fg: #c62828;
+
+  --font-family-primary: Inter, "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ---- Dark mode: surfaces are the palette's navy, darkened ---- */
+html[data-theme="dark"] {
+  --primary: var(--rh-navy-2);
+  --secondary: color-mix(in srgb, var(--rh-navy-2) 80%, #fff);
+
+  --body-bg: color-mix(in srgb, var(--rh-navy) 22%, #070a10);
+  --body-fg: #e3eaf5;
+  --body-quiet-color: #9aa9c0;
+  --body-medium-color: #c0cce0;
+  --body-loud-color: #fff;
+
+  --header-bg: color-mix(in srgb, var(--rh-navy) 70%, #000);
+  --breadcrumbs-bg: var(--rh-navy);
+
+  --link-fg: color-mix(in srgb, var(--rh-link) 45%, #fff);
+  --link-hover-color: color-mix(in srgb, var(--rh-accent) 70%, #fff);
+  --link-selected-fg: color-mix(in srgb, var(--rh-accent) 60%, #fff);
+
+  --hairline-color: color-mix(in srgb, var(--rh-navy) 60%, #1a2230);
+  --border-color: color-mix(in srgb, var(--rh-navy-2) 70%, #1a2230);
+  --darkened-bg: color-mix(in srgb, var(--rh-navy) 40%, #0a0f18);
+  --selected-bg: color-mix(in srgb, var(--rh-accent) 22%, #0a0f18);
+  --selected-row: color-mix(in srgb, var(--rh-accent) 22%, #0a0f18);
+
+  --button-bg: var(--rh-navy-2);
+  --button-hover-bg: color-mix(in srgb, var(--rh-navy-2) 80%, #fff);
+  --object-tools-bg: var(--rh-navy-2);
+  --object-tools-hover-bg: color-mix(in srgb, var(--rh-navy-2) 80%, #fff);
+
+  --message-success-bg: #123a26;
+  --message-warning-bg: #3d3210;
+  --message-error-bg: #44181b;
+  --error-fg: #ff8a8a;
+}
+
+/* No explicit choice yet and the OS prefers dark: same as the dark block above. */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]):not([data-theme="dark"]) {
+    --primary: var(--rh-navy-2);
+    --secondary: color-mix(in srgb, var(--rh-navy-2) 80%, #fff);
+    --body-bg: color-mix(in srgb, var(--rh-navy) 22%, #070a10);
+    --body-fg: #e3eaf5;
+    --body-quiet-color: #9aa9c0;
+    --body-medium-color: #c0cce0;
+    --body-loud-color: #fff;
+    --header-bg: color-mix(in srgb, var(--rh-navy) 70%, #000);
+    --breadcrumbs-bg: var(--rh-navy);
+    --link-fg: color-mix(in srgb, var(--rh-link) 45%, #fff);
+    --link-hover-color: color-mix(in srgb, var(--rh-accent) 70%, #fff);
+    --link-selected-fg: color-mix(in srgb, var(--rh-accent) 60%, #fff);
+    --hairline-color: color-mix(in srgb, var(--rh-navy) 60%, #1a2230);
+    --border-color: color-mix(in srgb, var(--rh-navy-2) 70%, #1a2230);
+    --darkened-bg: color-mix(in srgb, var(--rh-navy) 40%, #0a0f18);
+    --selected-bg: color-mix(in srgb, var(--rh-accent) 22%, #0a0f18);
+    --selected-row: color-mix(in srgb, var(--rh-accent) 22%, #0a0f18);
+    --button-bg: var(--rh-navy-2);
+    --button-hover-bg: color-mix(in srgb, var(--rh-navy-2) 80%, #fff);
+    --object-tools-bg: var(--rh-navy-2);
+    --object-tools-hover-bg: color-mix(in srgb, var(--rh-navy-2) 80%, #fff);
+    --message-success-bg: #123a26;
+    --message-warning-bg: #3d3210;
+    --message-error-bg: #44181b;
+    --error-fg: #ff8a8a;
+  }
+}
+
+body { font-family: var(--font-family-primary); }
+
+/* Header: navy bar with an orange accent line, white brand name. */
+#header { border-bottom: 3px solid var(--rh-accent); }
+#branding h1, #branding h1 a:link, #branding h1 a:visited { color: var(--header-branding-color); font-weight: 700; letter-spacing: .01em; }
+#header a:link, #header a:visited { color: var(--header-link-color); }
+
+/* Module headings and table headers pick up the navy palette. */
+.module h2, .module caption, .inline-group h2 { background: var(--primary); color: #fff; letter-spacing: .02em; }
+.module { border-radius: var(--rh-radius); overflow: hidden; }
+thead th, thead td { background: var(--darkened-bg); color: var(--body-quiet-color); font-weight: 600; }
+#changelist table thead th a:link, #changelist table thead th a:visited { color: var(--body-quiet-color); }
+#changelist-filter h2 { background: var(--primary); color: #fff; }
+#changelist-filter { border-radius: var(--rh-radius); overflow: hidden; }
+#changelist-filter li.selected a, #changelist-filter li.selected a:link { color: var(--rh-accent-dark); font-weight: 600; }
+
+/* Buttons and tools: navy by default, orange for the primary (save) action. */
+.button, input[type=submit], input[type=button], .submit-row input, a.button { border-radius: 8px; font-weight: 600; }
+input[type=submit].default, .submit-row input.default { background: var(--default-button-bg); color: #fff; }
+input[type=submit].default:hover, .submit-row input.default:hover { background: var(--default-button-hover-bg); }
+.object-tools a:link, .object-tools a:visited { border-radius: 999px; font-weight: 600; }
+
+/* Inputs and cards. */
+input[type=text], input[type=password], input[type=email], input[type=url], input[type=number], input[type=tel],
+input[type=search], textarea, select, .vTextField {
+  border-radius: 8px; border: 1px solid var(--border-color); background: var(--body-bg); color: var(--body-fg);
+}
+input:focus, textarea:focus, select:focus { outline: 2px solid var(--rh-accent); outline-offset: 1px; border-color: var(--rh-accent); }
+fieldset.module { border-radius: var(--rh-radius); border: 1px solid var(--hairline-color); }
+.messagelist li { border-radius: 8px; }
+tr:hover td, tr:hover th { background-color: var(--darkened-bg); }
+#changelist table tbody tr.selected { background-color: var(--selected-row); }
+.paginator a:link, .paginator a:visited { border-radius: 6px; }
+.paginator .this-page { background: var(--rh-accent); color: #fff; border-radius: 6px; }
+
+/* Login page: a centred card on a soft navy backdrop. */
+body.login { background: linear-gradient(160deg, var(--rh-navy) 0%, var(--rh-navy-2) 60%, color-mix(in srgb, var(--rh-navy-2) 75%, #fff) 100%); }
+body.login #container { border-radius: 14px; border: 0; box-shadow: 0 20px 50px rgba(0, 0, 0, .35); overflow: hidden; }
+body.login #header { border-bottom: 3px solid var(--rh-accent); }
+body.login .submit-row input { width: 100%; background: var(--default-button-bg); color: #fff; padding: 10px; }
+
+/* Dashboard accents: orange bars on the charts. */
+.rh-bar { background: var(--rh-accent) !important; }
+.rh-fill { background: var(--rh-accent) !important; }
+.rh-alert.hot { border-color: var(--rh-accent); }
+
+/* Palette picker in the header. */
+.rh-palette { display: inline-flex; align-items: center; gap: 6px; margin-right: 12px; }
+.rh-palette select { background: rgba(255, 255, 255, .12); color: #fff; border: 1px solid rgba(255, 255, 255, .35); border-radius: 999px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
+.rh-palette select option { color: #1b2433; background: #fff; }
+.rh-swatch { width: 12px; height: 12px; border-radius: 50%; background: var(--rh-accent); border: 2px solid #fff; display: inline-block; }

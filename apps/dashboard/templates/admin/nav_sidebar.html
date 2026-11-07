@@ -1,0 +1,14 @@
+{% load i18n %}
+{# Django adds "shifted" in a deferred script, so every page load first draws a hidden sidebar and a full-width #}
+{# content area, then jumps. Setting it here, while the page is still being parsed, avoids that flip. #}
+<script>
+  try { if (localStorage.getItem("django.admin.navSidebarIsOpen") !== "false") document.getElementById("main").classList.add("shifted"); } catch (e) {}
+</script>
+<button class="sticky toggle-nav-sidebar" id="toggle-nav-sidebar" aria-label="{% translate 'Toggle navigation' %}"></button>
+<nav class="sticky" id="nav-sidebar" aria-label="{% translate 'Sidebar' %}">
+  <a class="rh-home{% if request.path == dashboard_url %} current{% endif %}" href="{{ dashboard_url }}">▦ Dashboard</a>
+  <input type="search" id="nav-filter"
+         placeholder="{% translate 'Start typing to filter…' %}"
+         aria-label="{% translate 'Filter navigation items' %}">
+  {% include 'admin/app_list.html' with app_list=available_apps show_changelinks=False %}
+</nav>

@@ -1,0 +1,13 @@
+Hi {{ customer_name }},
+
+Good news: your order {{ order.order_number }} has been handed to our delivery partner and is on its way.
+
+{% if order.courier_name or order.tracking_number %}{% include "notifications/email/_delivery.txt" %}{% if order.tracking_number %}Use the tracking number on {% if order.courier_name %}{{ order.courier_name }}'s{% else %}the delivery partner's{% endif %} website to see where your parcel is.
+{% endif %}{% else %}We will send you the tracking details as soon as we have them.
+{% endif %}
+{% include "notifications/email/_summary.txt" %}{% if invoice.cash_due %}
+Please keep Rs {{ invoice.cash_due|floatformat:2 }} ready: you pay it to the delivery person when the parcel arrives.
+{% endif %}
+View your order: {{ order_url }}
+
+{{ seller.name }}

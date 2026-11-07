@@ -1,0 +1,7 @@
+{% extends "notifications/email/base.html" %}
+{% block title %}Invoice {{ invoice.invoice_number }}{% endblock %}
+{% block content %}
+<p style="margin:0 0 10px;">Here is your invoice for order <b>{{ order.order_number }}</b>. A PDF copy is attached so you can save or print it.</p>
+{% include "notifications/email/_invoice.html" %}
+{% include "notifications/email/_button.html" %}
+{% endblock %}

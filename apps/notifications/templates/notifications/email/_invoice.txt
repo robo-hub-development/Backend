@@ -1,0 +1,28 @@
+INVOICE {{ invoice.invoice_number }}
+{{ seller.name }}{% if seller.gstin %} (GSTIN {{ seller.gstin }}){% endif %}
+{{ seller.address }}
+Phone: {{ seller.phone }} | {{ seller.email }}
+
+Invoice date: {{ order.created_at|date:"d M Y" }}
+Order: {{ order.order_number }}
+Payment: {{ order.get_payment_method_display }} ({{ order.get_payment_status_display }})
+
+Bill to / Ship to:
+{{ invoice.ship.name }}
+{% for line in invoice.ship.lines %}{{ line }}
+{% endfor %}{{ invoice.ship.city_line }}
+Phone: {{ invoice.ship.mobile }}
+
+{% for item in invoice.items %}{{ forloop.counter }}. {{ item.name }} | {{ item.quantity }} x Rs {{ item.unit_price|floatformat:2 }} = Rs {{ item.amount|floatformat:2 }}
+{% endfor %}
+Items total: Rs {{ order.subtotal|floatformat:2 }}
+{% for charge in invoice.charges %}{{ charge.label }}: Rs {{ charge.amount|floatformat:2 }}
+{% endfor %}Total: Rs {{ order.total|floatformat:2 }}{% if order.amount_paid %}
+Paid online: Rs {{ order.amount_paid|floatformat:2 }}{% endif %}{% if invoice.cash_due %}
+Cash to pay on delivery: Rs {{ invoice.cash_due|floatformat:2 }}{% endif %}
+Amount in words: {{ invoice.in_words }}
+{% if order.courier_name or order.tracking_number %}
+Delivery partner: {{ order.courier_name|default:"-" }}
+Tracking number: {{ order.tracking_number|default:"-" }}
+{% endif %}
+This is a computer-generated invoice and needs no signature.

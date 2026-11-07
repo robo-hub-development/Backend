@@ -128,7 +128,7 @@ class ProductMedia(TimeStampedModel):
         verbose_name_plural = "product media"
 
     def __str__(self):
-        return f"{self.product_id}#{self.position}:{self.media_type}"
+        return f"{self.product.name} - {self.get_media_type_display()} {self.position}"
 
     def save(self, *args, **kwargs):
         self.media_type = media_type_for(self.file.name)
@@ -187,4 +187,4 @@ class ProductVariant(TimeStampedModel):
         ]
 
     def __str__(self):
-        return f"{self.product_id}:{self.option_id}"
+        return f"{self.product.name}: {self.option}"

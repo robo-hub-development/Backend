@@ -1,0 +1,66 @@
+{# The invoice itself, laid out for email clients (tables + inline CSS). The attached copy is the printable page. #}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #d5dce8;border-radius:8px;margin:14px 0;font-size:13px;line-height:1.45;">
+  <tr><td style="padding:14px 16px;border-bottom:3px solid #03244f;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td valign="top">
+        <div style="font-size:16px;font-weight:bold;color:#03244f;">{{ seller.name }}</div>
+        <div style="color:#5b6678;">{{ seller.address }}</div>
+        <div style="color:#5b6678;">Phone: {{ seller.phone }} · {{ seller.email }}</div>
+        {% if seller.gstin %}<div><b>GSTIN:</b> {{ seller.gstin }}</div>{% endif %}
+      </td>
+      <td valign="top" align="right" style="white-space:nowrap;">
+        <div style="font-size:18px;font-weight:bold;letter-spacing:2px;color:#fe6b03;">INVOICE</div>
+        <div><span style="color:#5b6678;">Invoice no.</span> <b>{{ invoice.invoice_number }}</b></div>
+        <div><span style="color:#5b6678;">Date</span> {{ order.created_at|date:"d M Y" }}</div>
+        <div><span style="color:#5b6678;">Order</span> {{ order.order_number }}</div>
+        <div><span style="color:#5b6678;">Payment</span> {{ order.get_payment_method_display }} · {{ order.get_payment_status_display }}</div>
+      </td>
+    </tr></table>
+  </td></tr>
+  <tr><td style="padding:12px 16px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td valign="top" width="50%" style="padding-right:8px;">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#5b6678;">Bill to / Ship to</div>
+        <div><b>{{ invoice.ship.name }}</b></div>
+        {% for line in invoice.ship.lines %}<div>{{ line }}</div>{% endfor %}
+        <div>{{ invoice.ship.city_line }}</div>
+        <div>Phone: {{ invoice.ship.mobile }}</div>
+      </td>
+      <td valign="top" width="50%" style="padding-left:8px;">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#5b6678;">Delivery</div>
+        {% if order.courier_name or order.tracking_number %}
+          {% if order.courier_name %}<div>Partner: <b>{{ order.courier_name }}</b></div>{% endif %}
+          {% if order.tracking_number %}<div>Tracking no.: <b>{{ order.tracking_number }}</b></div>{% endif %}
+        {% else %}<div>Details will be shared after dispatch.</div>{% endif %}
+      </td>
+    </tr></table>
+  </td></tr>
+  <tr><td style="padding:0 16px 8px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+      <tr style="background:#03244f;color:#ffffff;">
+        <th align="left" style="padding:7px 8px;width:28px;">#</th><th align="left" style="padding:7px 8px;">Item</th>
+        <th align="right" style="padding:7px 8px;">Qty</th><th align="right" style="padding:7px 8px;">Unit (₹)</th><th align="right" style="padding:7px 8px;">Amount (₹)</th>
+      </tr>
+      {% for item in invoice.items %}
+      <tr>
+        <td style="padding:7px 8px;border-bottom:1px solid #e4e9f1;">{{ forloop.counter }}</td>
+        <td style="padding:7px 8px;border-bottom:1px solid #e4e9f1;">{{ item.name }}</td>
+        <td align="right" style="padding:7px 8px;border-bottom:1px solid #e4e9f1;">{{ item.quantity }}</td>
+        <td align="right" style="padding:7px 8px;border-bottom:1px solid #e4e9f1;">{{ item.unit_price|floatformat:2 }}</td>
+        <td align="right" style="padding:7px 8px;border-bottom:1px solid #e4e9f1;">{{ item.amount|floatformat:2 }}</td>
+      </tr>
+      {% endfor %}
+      <tr><td colspan="4" align="right" style="padding:6px 8px;color:#5b6678;">Items total</td><td align="right" style="padding:6px 8px;">₹{{ order.subtotal|floatformat:2 }}</td></tr>
+      {% for charge in invoice.charges %}
+      <tr><td colspan="4" align="right" style="padding:3px 8px;color:#5b6678;">{{ charge.label }}</td><td align="right" style="padding:3px 8px;">₹{{ charge.amount|floatformat:2 }}</td></tr>
+      {% endfor %}
+      <tr><td colspan="4" align="right" style="padding:8px;font-size:15px;font-weight:bold;border-top:2px solid #03244f;">Total</td><td align="right" style="padding:8px;font-size:15px;font-weight:bold;border-top:2px solid #03244f;">₹{{ order.total|floatformat:2 }}</td></tr>
+      {% if order.amount_paid %}<tr><td colspan="4" align="right" style="padding:3px 8px;color:#5b6678;">Paid online</td><td align="right" style="padding:3px 8px;">− ₹{{ order.amount_paid|floatformat:2 }}</td></tr>{% endif %}
+      {% if invoice.cash_due %}<tr style="background:#fff4e8;"><td colspan="4" align="right" style="padding:6px 8px;font-weight:bold;color:#b24400;">Cash to pay on delivery</td><td align="right" style="padding:6px 8px;font-weight:bold;color:#b24400;">₹{{ invoice.cash_due|floatformat:2 }}</td></tr>{% endif %}
+    </table>
+  </td></tr>
+  <tr><td style="padding:4px 16px 14px;">
+    <div style="padding:8px 10px;background:#f3f6fb;border-radius:6px;"><b>Amount in words:</b> {{ invoice.in_words }}</div>
+    <div style="margin-top:8px;color:#5b6678;font-size:12px;">This is a computer-generated invoice and needs no signature. Please check the parcel on delivery and keep this invoice for warranty and returns.</div>
+  </td></tr>
+</table>

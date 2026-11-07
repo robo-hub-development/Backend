@@ -1,17 +1,28 @@
+"""Low-level order operations shared by checkout, payments and (later) staff actions.
+
+Everything here assumes the caller holds the right locks and runs inside transaction.atomic(); the
+orchestration across carts, payments and the gateway lives in apps.orders.checkout.
+"""
+
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 
-from django.db import connection, transaction
+from django.db import connection
 from django.utils import timezone
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import ValidationError
 
 from apps.cart.models import Cart, CartItem
 from apps.catalog.models import Product
+from apps.notifications import services as notifications
 
-from .models import ORDER_NUMBER_SEQUENCE, Order, OrderItem
+from .models import ORDER_NUMBER_SEQUENCE, Order, OrderCharge, OrderItem, OrderStatusEvent
 
 logger = logging.getLogger(__name__)
+
+
+class InvalidTransition(Exception):
+    """A status change the transition map does not allow (a programming error, not a user error)."""
 
 
 @dataclass(frozen=True)
@@ -24,7 +35,15 @@ class Purchase:
     cart_item: CartItem | None = None
 
 
-def _fail(message: str):
+@dataclass(frozen=True)
+class ChargeSpec:
+    kind: str
+    label: str
+    amount: Decimal
+    rule: dict = field(default_factory=dict)
+
+
+def fail(message: str):
     # {"detail": ...} surfaces as the top-level `message` of the error envelope.
     return ValidationError({"detail": message})
 
@@ -40,30 +59,34 @@ def _main_image_url(product) -> str:
     return image.file.url if image else ""
 
 
-def lock_cart_lines(user, cart_id, cart_item_ids) -> tuple[Cart, list[CartItem]]:
-    """Validate and row-lock the chosen live lines of the caller's cart. Call inside transaction.atomic().
+def lock_cart_lines(user, cart_id, cart_item_ids, *, lock=True) -> tuple[Cart, list[CartItem]]:
+    """Validate (and, with lock=True, row-lock) the chosen live lines of the caller's cart.
 
     Foreign, unknown, already-ordered and already-being-paid ids are all rejected, so a line can never be
-    fulfilled twice (e.g. a COD order for lines that an online payment is holding).
+    fulfilled twice (e.g. a COD order for lines that an unpaid order is holding). Locking needs
+    transaction.atomic(); quotes pass lock=False.
     """
+    carts = Cart.objects.select_for_update() if lock else Cart.objects
     # A client-supplied cart id is never trusted: it must be the caller's own cart.
-    cart = Cart.objects.select_for_update().filter(pk=cart_id, user=user).first()
+    cart = carts.filter(pk=cart_id, user=user).first()
     if cart is None:
         raise ValidationError({"cartId": "Unknown cart."})
+    lines_qs = CartItem.objects.select_for_update() if lock else CartItem.objects
     lines = list(
-        CartItem.objects.select_for_update()
-        .filter(cart=cart, pk__in=cart_item_ids, ordered_at__isnull=True)
+        lines_qs.filter(cart=cart, pk__in=cart_item_ids, ordered_at__isnull=True)
         .select_related("product")
         .order_by("product_id")
     )
     # Foreign, unknown and already-ordered ids all look the same: not a live line of this cart.
     if len(lines) != len(set(cart_item_ids)):
         raise ValidationError({"cartItems": "Some cart items are not in your cart or were already ordered."})
-    # `payment_items` is the reverse relation of payments.PaymentItem.cart_item.
-    if CartItem.objects.filter(
-        pk__in=[line.pk for line in lines], payment_items__attempt__status="pending"
-    ).exists():
-        raise ValidationError({"cartItems": "Some cart items are already waiting for a payment."})
+    held = CartItem.objects.filter(
+        pk__in=[line.pk for line in lines], order_items__order__status=Order.Status.AWAITING_PAYMENT
+    )
+    if held.exists():
+        raise ValidationError(
+            {"cartItems": "Some cart items belong to an order that is waiting for payment."}
+        )
     return cart, lines
 
 
@@ -81,9 +104,9 @@ def take_stock(pairs: list[tuple]) -> dict:
     for product_id, quantity in pairs:
         product = products.get(product_id)
         if product is None:
-            raise _fail("A product in your cart is no longer available.")
+            raise fail("A product in your cart is no longer available.")
         if product.stock_quantity < quantity:
-            raise _fail(f"{product.name} is out of stock.")
+            raise fail(f"{product.name} is out of stock.")
     for product_id, quantity in pairs:
         product = products[product_id]
         product.stock_quantity -= quantity  # safe: the row is locked until commit
@@ -92,7 +115,7 @@ def take_stock(pairs: list[tuple]) -> dict:
 
 
 def return_stock(pairs: list[tuple]) -> None:
-    """Give back stock for [(product_id, quantity)] (cancelled order, failed or expired payment)."""
+    """Give back stock for [(product_id, quantity)] (cancelled or expired order)."""
     ids = [pid for pid, _ in pairs if pid]
     products = {p.pk: p for p in Product.objects.select_for_update().filter(pk__in=ids).order_by("pk")}
     for product_id, quantity in pairs:
@@ -102,22 +125,67 @@ def return_stock(pairs: list[tuple]) -> None:
             product.save(update_fields=["stock_quantity", "updated_at"])
 
 
-def create_order(
-    *, user, cart, purchases: list[Purchase], address: dict, payment_method, payment_status, status
-) -> Order:
-    """Persist an order with its lines, mapping each line to its cart line and marking those lines ordered.
+def return_order_stock(order: Order) -> None:
+    return_stock([(item.product_id, item.quantity) for item in order.items.all()])
 
-    Stock is NOT touched here: the caller has already taken it (COD: at checkout; online: when the payment
-    was started). Call inside transaction.atomic().
+
+def transition(order: Order, to_status: str, *, actor=None, reason: str = "") -> Order:
+    """The only way an order's status changes: checks the transition map and writes the audit event.
+
+    The caller must hold a row lock on the order. `actor` is None when the system acts (webhook, expiry job).
     """
+    if not order.can_transition_to(to_status):
+        raise InvalidTransition(f"{order.order_number}: {order.status} -> {to_status}")
+    previous = order.status
+    order.status = to_status
+    fields = ["status", "updated_at"]
+    if to_status == Order.Status.CANCELLED:
+        order.cancelled_at = timezone.now()
+        fields.append("cancelled_at")
+    if actor is not None:
+        order.modified_by = actor
+        fields.append("modified_by")
+    order.save(update_fields=fields)
+    OrderStatusEvent.objects.create(
+        order=order, from_status=previous, to_status=to_status, actor=actor, reason=reason[:200]
+    )
+    if to_status == Order.Status.DELIVERED:
+        notifications.after_commit(notifications.notify_order_delivered, order.pk)
+    if to_status == Order.Status.SHIPPED:
+        notifications.after_commit(notifications.notify_order_shipped, order.pk)
+        # The invoice goes once as well; staff can resend it from the admin.
+        notifications.after_commit(notifications.send_invoice, order.pk)
+    return order
+
+
+def create_order(
+    *,
+    user,
+    cart,
+    purchases: list[Purchase],
+    charges: list[ChargeSpec],
+    address: dict,
+    payment_method: str,
+    status: str,
+    payment_due_by=None,
+) -> Order:
+    """Persist an order with its lines and charges, mapping each line to its cart line.
+
+    Stock is NOT touched and cart lines are NOT marked ordered here: the caller takes the stock, and calls
+    commit_cart_lines once the order no longer waits for payment. Call inside transaction.atomic().
+    """
+    subtotal = sum((p.unit_price * p.quantity for p in purchases), Decimal(0))
+    charges_total = sum((c.amount for c in charges), Decimal(0))
     order = Order.objects.create(
         user=user,
         cart=cart,
         number=_next_order_number(),
         status=status,
         payment_method=payment_method,
-        payment_status=payment_status,
-        total=sum((p.unit_price * p.quantity for p in purchases), Decimal(0)),
+        subtotal=subtotal,
+        charges_total=charges_total,
+        total=subtotal + charges_total,
+        payment_due_by=payment_due_by,
         created_by=user,
         modified_by=user,
         ship_full_name=address["full_name"],
@@ -141,64 +209,18 @@ def create_order(
         )
         for p in purchases
     )
-    CartItem.objects.filter(pk__in=[p.cart_item.pk for p in purchases if p.cart_item]).update(
-        ordered_at=timezone.now()
+    OrderCharge.objects.bulk_create(
+        OrderCharge(order=order, kind=c.kind, label=c.label, amount=c.amount, rule=c.rule) for c in charges
+    )
+    OrderStatusEvent.objects.create(
+        order=order, from_status="", to_status=status, actor=user, reason="placed"
     )
     return order
 
 
-def place_order(user, cart_id, cart_item_ids, address: dict) -> Order:
-    """Create a cash-on-delivery order from the chosen live lines of the caller's cart, taking stock now.
-
-    The client names the cart lines; quantities and prices always come from the cart and the catalogue.
-    Online orders go through apps.payments instead (the order exists only after payment succeeds).
-    """
-    with transaction.atomic():
-        cart, lines = lock_cart_lines(user, cart_id, cart_item_ids)
-        # PRD 1.4: cash on delivery is for one piece only.
-        if not (len(lines) == 1 and lines[0].quantity == 1):
-            raise _fail("Cash on delivery is available only for a single item.")
-        products = take_stock([(line.product_id, line.quantity) for line in lines])
-        purchases = [
-            Purchase(products[line.product_id], line.quantity, products[line.product_id].price, line)
-            for line in lines
-        ]
-        return create_order(
-            user=user,
-            cart=cart,
-            purchases=purchases,
-            address=address,
-            payment_method=Order.PaymentMethod.COD,
-            payment_status=Order.PaymentStatus.PENDING,
-            status=Order.Status.PENDING,
-        )
-
-
-def cancel_order(user, order_id) -> Order:
-    """Cancel the user's own order if the status map and the cancellation window allow it; restore stock.
-
-    A paid online order is refunded after the cancellation is committed (see payments.services).
-    """
-    with transaction.atomic():
-        # Lock the order so two concurrent cancels cannot both restore stock. Foreign ids behave as unknown.
-        order = Order.objects.select_for_update().filter(user=user, pk=order_id).first()
-        if order is None:
-            raise NotFound
-        if not order.can_cancel:
-            raise _fail("This order can no longer be cancelled.")
-
-        return_stock([(item.product_id, item.quantity) for item in order.items.all()])
-        order.status = Order.Status.CANCELLED
-        order.cancelled_at = timezone.now()
-        order.modified_by = user
-        order.save(update_fields=["status", "cancelled_at", "modified_by", "updated_at"])
-
-    if (
-        order.payment_method == Order.PaymentMethod.ONLINE
-        and order.payment_status == Order.PaymentStatus.PAID
-    ):
-        from apps.payments import services as payment_services  # lazy: payments depends on this module
-
-        payment_services.refund_cancelled_order(order)
-        order.refresh_from_db()
-    return order
+def commit_cart_lines(order: Order) -> None:
+    """Mark the cart lines behind this order as ordered (they leave the live cart)."""
+    CartItem.objects.filter(
+        pk__in=order.items.exclude(cart_item__isnull=True).values_list("cart_item_id", flat=True),
+        ordered_at__isnull=True,
+    ).update(ordered_at=timezone.now())

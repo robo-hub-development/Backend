@@ -27,19 +27,8 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 
-# Email (OTP codes). Without EMAIL_HOST the console backend prints codes to the server log so a first
-# deployment can start; customers cannot receive codes until SMTP is configured (a system check warns).
-EMAIL_HOST = env("EMAIL_HOST", default="")
-EMAIL_BACKEND = (
-    "django.core.mail.backends.smtp.EmailBackend"
-    if EMAIL_HOST
-    else "django.core.mail.backends.console.EmailBackend"
-)
-EMAIL_PORT = env.int("EMAIL_PORT", default=587)
-EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
-EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
-EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="no-reply@robohub.local")
+# Email comes from the shared SMTP settings in base.py (EMAIL_HOST and friends). Without EMAIL_HOST the
+# console backend logs mail so a first deployment can start; a deploy check warns until SMTP is set.
 
 # A fixed OTP lets anyone who knows an email log in as that user. It is OFF unless the deliberately named
 # INSECURE_FIXED_OTP variable is set (testing deployments only), and a deploy check warns while it is on.

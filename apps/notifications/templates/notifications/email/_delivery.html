@@ -1,0 +1,4 @@
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:14px 0;font-size:15px;">
+  {% if order.courier_name %}<tr><td style="padding:3px 16px 3px 0;color:#5b6678;">Delivery partner</td><td style="padding:3px 0;"><b>{{ order.courier_name }}</b></td></tr>{% endif %}
+  {% if order.tracking_number %}<tr><td style="padding:3px 16px 3px 0;color:#5b6678;">Tracking number</td><td style="padding:3px 0;"><b style="font-family:Consolas,monospace;">{{ order.tracking_number }}</b></td></tr>{% endif %}
+</table>

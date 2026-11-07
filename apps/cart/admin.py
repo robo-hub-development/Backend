@@ -10,6 +10,9 @@ class CartItemInline(admin.TabularInline):
     fields = ("product", "quantity", "ordered_at")
     readonly_fields = fields
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("product")
+
     def has_add_permission(self, request, obj=None):
         return False
 

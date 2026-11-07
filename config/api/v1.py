@@ -7,6 +7,7 @@ from apps.common.views import HealthView
 urlpatterns = [
     path("health", HealthView.as_view(), name="api-health"),
     path("auth/", include("apps.accounts.api.urls")),
+    path("", include("apps.accounts.api.address_urls")),
     path("", include("apps.catalog.api.urls")),
     path("", include("apps.cart.api.urls")),
     path("", include("apps.orders.api.urls")),

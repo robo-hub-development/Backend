@@ -1,0 +1,12 @@
+Hi {{ customer_name }},
+
+Your order {{ order.order_number }} was cancelled and we have started your refund.
+
+Refund amount: Rs {{ refund_amount|floatformat:2 }}{% if refund_reference %}
+Refund reference: {{ refund_reference }}{% endif %}
+
+The money goes back to the payment method you used. Banks can take a few business days to show it. We will email you again when the refund is complete.
+
+View your order: {{ order_url }}
+
+{{ seller.name }}

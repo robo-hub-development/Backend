@@ -1,0 +1,12 @@
+Hi {{ customer_name }},
+
+Your refund for order {{ order.order_number }} is complete.
+
+Amount refunded: Rs {{ refund_amount|floatformat:2 }}{% if refund_reference %}
+Refund reference: {{ refund_reference }}{% endif %}
+
+It has been sent to the payment method you used. If you do not see it after a few business days, contact your bank with the reference above, or reply to this email.
+
+View your order: {{ order_url }}
+
+{{ seller.name }}

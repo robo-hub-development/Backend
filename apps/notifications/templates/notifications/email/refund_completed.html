@@ -1,0 +1,8 @@
+{% extends "notifications/email/base.html" %}
+{% block title %}Refund complete{% endblock %}
+{% block content %}
+<p style="margin:0 0 14px;">Your refund for order <b>{{ order.order_number }}</b> is complete.</p>
+<p style="margin:0 0 6px;"><b>Amount refunded:</b> ₹{{ refund_amount|floatformat:2 }}{% if refund_reference %}<br><b>Refund reference:</b> {{ refund_reference }}{% endif %}</p>
+<p style="margin:14px 0 0;">It has been sent to the payment method you used. If you do not see it after a few business days, contact your bank with the reference above, or reply to this email.</p>
+{% include "notifications/email/_button.html" %}
+{% endblock %}

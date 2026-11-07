@@ -1,0 +1,41 @@
+{# Rendered inline (not from a cached .css file) so a layout fix reaches every browser on the next page load. #}
+<style>
+/* Forms: fields grouped in one row (fieldsets with tuples) become an even grid, label above value, instead of
+   Django's content-sized flex boxes that leave the columns ragged. Single-field rows keep Django's layout. */
+fieldset .form-row > .form-multiline {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));  /* the same three columns in every row, so they line up */
+  gap: 14px 28px;
+  align-items: start;
+  width: 100%;
+}
+@media (max-width: 1000px) { fieldset .form-row > .form-multiline { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { fieldset .form-row > .form-multiline { grid-template-columns: minmax(0, 1fr); } }
+fieldset .form-multiline > div { min-width: 0; }
+fieldset .form-multiline .fieldBox { display: block; float: none; width: auto; margin: 0; }
+fieldset .form-multiline .fieldBox > label {
+  display: block; float: none; width: auto; padding: 0 0 4px; margin: 0;
+  color: var(--body-quiet-color); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+}
+fieldset .form-multiline .fieldBox .readonly { display: block; float: none; margin: 0; padding: 4px 0; font-size: 14px; word-break: break-word; }
+fieldset .form-multiline .fieldBox input[type=text],
+fieldset .form-multiline .fieldBox input[type=number],
+fieldset .form-multiline .fieldBox select { width: 100%; box-sizing: border-box; }
+/* Specific enough to beat Django's "form .aligned div.help" (which indents help text by the label width). */
+form .aligned .form-multiline div.help { margin: 4px 0 0; padding: 0; text-align: left; justify-content: flex-start; width: auto; }
+form .aligned .form-multiline div.help * { margin-left: 0; padding-left: 0; text-align: left; }
+/* In a form that uses the grid, single-field rows (e.g. summary, description) get the same label-above look. */
+fieldset:has(.form-multiline) .form-row:not(:has(.form-multiline)) { padding: 14px 12px; }
+fieldset:has(.form-multiline) .form-row:not(:has(.form-multiline)) .flex-container { display: block; }
+fieldset:has(.form-multiline) .form-row:not(:has(.form-multiline)) label {
+  display: block; float: none; width: auto; padding: 0 0 4px; margin: 0;
+  color: var(--body-quiet-color); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+}
+fieldset:has(.form-multiline) .form-row:not(:has(.form-multiline)) input[type=text],
+fieldset:has(.form-multiline) .form-row:not(:has(.form-multiline)) .vTextField { width: 100%; box-sizing: border-box; }
+fieldset:has(.form-multiline) .form-row:not(:has(.form-multiline)) div.help { margin: 4px 0 0; padding: 0; }
+fieldset:has(.form-multiline) .rh-richtext { max-width: none; }
+/* Checkboxes sit on the input line: box first, label beside it. */
+fieldset .form-multiline .fieldBox.checkbox-row { display: flex; align-items: center; gap: 8px; padding-top: 22px; }
+fieldset .form-multiline .fieldBox.checkbox-row > label { display: inline; padding: 0; }
+</style>

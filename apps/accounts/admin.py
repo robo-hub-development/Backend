@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.forms import AdminUserCreationForm, UserChangeForm
 
-from .models import User
+from .models import Address, User
 
 # Fields that grant power; only superusers may edit them (full role management lands in Phase 7).
 PRIVILEGE_FIELDS = ("is_superuser", "groups", "user_permissions")
@@ -53,3 +53,11 @@ class UserAdmin(DjangoUserAdmin):
         if request.user.is_superuser:
             return fields
         return (*fields, *PRIVILEGE_FIELDS)
+
+
+@admin.register(Address)
+class AddressAdmin(admin.ModelAdmin):
+    list_display = ("full_name", "user", "city", "state", "pincode", "is_default")
+    list_filter = ("state", "is_default")
+    search_fields = ("full_name", "user__email", "pincode", "mobile")
+    raw_id_fields = ("user",)

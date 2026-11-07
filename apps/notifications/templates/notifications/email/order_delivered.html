@@ -1,0 +1,9 @@
+{% extends "notifications/email/base.html" %}
+{% block title %}Order {{ order.order_number }} delivered{% endblock %}
+{% block content %}
+<p style="margin:0 0 14px;">Your order <b>{{ order.order_number }}</b> has been delivered. Thank you for shopping with us!</p>
+{% include "notifications/email/_summary.html" %}
+<p style="margin:10px 0 0;">{% if order.payment_method == "cod" %}Payment of <b>₹{{ order.total|floatformat:2 }}</b> is complete (cash was collected on delivery).{% else %}Your payment of <b>₹{{ order.total|floatformat:2 }}</b> was received online.{% endif %}</p>
+<p style="margin:14px 0 0;">If anything is not right with your parcel, reply to this email and we will help.</p>
+{% include "notifications/email/_button.html" %}
+{% endblock %}

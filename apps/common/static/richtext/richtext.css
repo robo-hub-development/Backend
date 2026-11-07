@@ -1,0 +1,14 @@
+/* Quill inside the admin: follow the admin's colours (and its dark mode) instead of Quill's light defaults. */
+.rh-richtext { display: inline-block; width: 100%; max-width: 760px; vertical-align: top; }
+.rh-richtext .ql-toolbar.ql-snow { background: var(--darkened-bg, #f3f6fb); border-color: var(--border-color, #ccc); border-radius: 8px 8px 0 0; }
+.rh-richtext .ql-container.ql-snow { background: var(--body-bg, #fff); color: var(--body-fg, #222); border-color: var(--border-color, #ccc); border-radius: 0 0 8px 8px; font-family: inherit; font-size: 14px; }
+.rh-richtext .ql-editor { min-height: 180px; max-height: 480px; overflow-y: auto; }
+.rh-richtext .ql-editor.ql-blank::before { color: var(--body-quiet-color, #888); font-style: normal; }
+.rh-richtext .ql-snow .ql-stroke { stroke: var(--body-fg, #444); }
+.rh-richtext .ql-snow .ql-fill { fill: var(--body-fg, #444); }
+.rh-richtext .ql-snow .ql-picker { color: var(--body-fg, #444); }
+.rh-richtext .ql-snow .ql-picker-options { background: var(--body-bg, #fff); border-color: var(--border-color, #ccc); }
+.rh-richtext .ql-snow .ql-tooltip { background: var(--body-bg, #fff); color: var(--body-fg, #222); border-color: var(--border-color, #ccc); }
+.rh-richtext .ql-snow .ql-tooltip input { color: var(--body-fg, #222); }
+.rh-richtext .ql-editor h2, .rh-richtext .ql-editor h3 { margin: .6em 0 .3em; padding: 0; background: none; color: inherit; text-transform: none; }
+.rh-richtext .ql-editor a { color: var(--link-fg, #0a56c2); }

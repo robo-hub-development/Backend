@@ -13,7 +13,7 @@ class Cart(TimeStampedModel):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cart")
 
     def __str__(self):
-        return f"Cart of {self.user_id}"
+        return f"Cart of {self.user.email}"
 
 
 class CartItem(TimeStampedModel):
@@ -41,4 +41,4 @@ class CartItem(TimeStampedModel):
         ]
 
     def __str__(self):
-        return f"{self.cart_id}:{self.product_id}x{self.quantity}"
+        return f"{self.product.name} x{self.quantity}"

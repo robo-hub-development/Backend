@@ -1,0 +1,9 @@
+{% extends "notifications/email/base.html" %}
+{% block title %}Order {{ order.order_number }}{% endblock %}
+{% block content %}
+<p style="margin:0 0 14px;">Thank you for your order. We have received it and will prepare it for dispatch.</p>
+<p style="margin:0 0 6px;"><b>Order number:</b> {{ order.order_number }}<br><b>Placed on:</b> {{ order.created_at|date:"d M Y" }}<br><b>Payment:</b> {{ order.get_payment_method_display }}</p>
+{% include "notifications/email/_summary.html" %}
+{% if invoice.cash_due %}<p style="margin:10px 0 0;">Please keep <b>₹{{ invoice.cash_due|floatformat:2 }}</b> ready: you pay it to the delivery person when the parcel arrives.</p>{% endif %}
+{% include "notifications/email/_button.html" %}
+{% endblock %}

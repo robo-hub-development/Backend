@@ -1,0 +1,8 @@
+{% extends "notifications/email/base.html" %}
+{% block title %}Refund started{% endblock %}
+{% block content %}
+<p style="margin:0 0 14px;">Your order <b>{{ order.order_number }}</b> was cancelled and we have started your refund.</p>
+<p style="margin:0 0 6px;"><b>Refund amount:</b> ₹{{ refund_amount|floatformat:2 }}{% if refund_reference %}<br><b>Refund reference:</b> {{ refund_reference }}{% endif %}</p>
+<p style="margin:14px 0 0;">The money goes back to the payment method you used. Banks can take a few business days to show it. We will email you again when the refund is complete.</p>
+{% include "notifications/email/_button.html" %}
+{% endblock %}

@@ -40,3 +40,19 @@ class UserSerializer(serializers.Serializer):
 
     def get_id(self, obj) -> str:
         return str(obj.pk)
+
+
+class SavedAddressSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    fullName = serializers.CharField(source="full_name", max_length=120)
+    mobile = serializers.CharField(max_length=16, validators=[validate_mobile])
+    line1 = serializers.CharField(max_length=200)
+    line2 = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+    city = serializers.CharField(max_length=100)
+    state = serializers.CharField(max_length=100)
+    pincode = serializers.RegexField(r"^\d{6}$", error_messages={"invalid": "Enter a valid 6-digit pincode."})
+    isDefault = serializers.BooleanField(
+        source="is_default",
+        required=False,
+        help_text="Make this the default address. The first saved address is always the default.",
+    )

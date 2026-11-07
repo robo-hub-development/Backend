@@ -1,0 +1,3 @@
+{% if order.courier_name %}Delivery partner: {{ order.courier_name }}
+{% endif %}{% if order.tracking_number %}Tracking number: {{ order.tracking_number }}
+{% endif %}

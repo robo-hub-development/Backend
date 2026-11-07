@@ -1,0 +1,9 @@
+Hi {{ customer_name }},
+
+{% if order.status == "shipped" %}Here are the delivery details for your order {{ order.order_number }}, which is on its way.{% else %}We have arranged delivery for your order {{ order.order_number }}. We will email you again when it is dispatched.{% endif %}
+
+{% include "notifications/email/_delivery.txt" %}{% if order.tracking_number %}Use the tracking number on {% if order.courier_name %}{{ order.courier_name }}'s{% else %}the delivery partner's{% endif %} website to see where your parcel is.
+{% endif %}
+View your order: {{ order_url }}
+
+{{ seller.name }}

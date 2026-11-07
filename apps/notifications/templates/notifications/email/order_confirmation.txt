@@ -1,0 +1,15 @@
+Hi {{ customer_name }},
+
+Thank you for your order. We have received it and will prepare it for dispatch.
+
+Order number: {{ order.order_number }}
+Placed on: {{ order.created_at|date:"d M Y" }}
+Payment: {{ order.get_payment_method_display }}
+
+{% include "notifications/email/_summary.txt" %}{% if invoice.cash_due %}
+Please keep Rs {{ invoice.cash_due|floatformat:2 }} ready: you pay it to the delivery person when the parcel arrives.
+{% endif %}
+View your order: {{ order_url }}
+
+Questions? Just reply to this email{% if seller.phone %} or call {{ seller.phone }}{% endif %}.
+{{ seller.name }}

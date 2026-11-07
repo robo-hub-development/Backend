@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from apps.common.models import TimeStampedModel, UUIDModel
 
-from .validators import validate_mobile
+from .validators import validate_mobile, validate_pincode
 
 
 class UserManager(BaseUserManager):
@@ -111,8 +111,36 @@ class AuthToken(UUIDModel):
         indexes = [models.Index(fields=["expires_at"])]
 
     def __str__(self):
-        return f"token:{self.user_id}"
+        return f"Login session of {self.user.email}"
 
     @property
     def is_valid(self) -> bool:
         return self.revoked_at is None and self.expires_at > timezone.now()
+
+
+class Address(TimeStampedModel):
+    """A delivery address saved on the customer's profile. Orders copy it (they keep their own snapshot), so
+    editing or deleting a saved address never changes an existing order."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="addresses")
+    full_name = models.CharField(max_length=120)
+    mobile = models.CharField(max_length=16, validators=[validate_mobile])
+    line1 = models.CharField(max_length=200)
+    line2 = models.CharField(max_length=200, blank=True)  # landmark
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)
+    pincode = models.CharField(max_length=6, validators=[validate_pincode])
+    is_default = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-is_default", "-created_at"]
+        verbose_name_plural = "addresses"
+        constraints = [
+            # At most one default per customer, enforced by the database.
+            models.UniqueConstraint(
+                fields=["user"], condition=models.Q(is_default=True), name="address_one_default_per_user"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.full_name}, {self.city} {self.pincode}"

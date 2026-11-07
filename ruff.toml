@@ -9,3 +9,4 @@ ignore = ["DJ001"]
 [lint.per-file-ignores]
 "**/tests/**" = ["S101", "S105", "S106"]
 "config/settings/*" = ["F403", "F405"]
+"apps/*/seed_data.py" = ["E501"]  # sample content, kept as readable long strings

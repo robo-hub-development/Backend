@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{% block title %}{{ seller.name }}{% endblock %}</title></head>
+<body style="margin:0;padding:0;background:#eef1f6;font-family:Arial,Helvetica,sans-serif;color:#1b2433;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef1f6;padding:24px 12px;"><tr><td align="center">
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:10px;overflow:hidden;">
+    <tr><td style="background:#03244f;padding:18px 24px;border-bottom:3px solid #fe6b03;color:#ffffff;font-size:20px;font-weight:bold;">{{ seller.name }}</td></tr>
+    <tr><td style="padding:24px;font-size:15px;line-height:1.55;">
+      <p style="margin:0 0 14px;">Hi {{ customer_name }},</p>
+      {% block content %}{% endblock %}
+      <p style="margin:22px 0 0;">Questions? Just reply to this email{% if seller.phone %} or call {{ seller.phone }}{% endif %}.</p>
+    </td></tr>
+    <tr><td style="padding:14px 24px;background:#f3f6fb;color:#5b6678;font-size:12px;">
+      {{ seller.name }}{% if seller.address %} · {{ seller.address }}{% endif %}<br>
+      You are receiving this because of your order {{ order.order_number }}.
+    </td></tr>
+  </table>
+</td></tr></table>
+</body></html>

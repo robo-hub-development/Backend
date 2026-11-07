@@ -6,11 +6,15 @@ import environ
 
 from config.api.versions import API_VERSIONS, DEFAULT_API_VERSION
 
+from .mail import email_settings
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 env = environ.Env()
-# Optional .env file for local development; real environments inject env vars.
-environ.Env.read_env(BASE_DIR / ".env", overwrite=False)
+# Optional .env file for local development; real environments inject env vars. DJANGO_READ_DOTENV=false skips
+# it (the test helper that boots production settings does, so a developer's .env cannot change the result).
+if env.bool("DJANGO_READ_DOTENV", default=True):
+    environ.Env.read_env(BASE_DIR / ".env", overwrite=False)
 
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = False
@@ -20,7 +24,7 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 SITE_URL = env("SITE_URL", default="http://localhost:3000")
 
 DJANGO_APPS = [
-    "django.contrib.admin",
+    "apps.dashboard.admin_config.RoboHubAdminConfig",  # django.contrib.admin with our dashboard site
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -41,8 +45,16 @@ LOCAL_APPS = [
     "apps.orders",
     "apps.payments",
     "apps.content",
+    "apps.notifications",
+    "apps.dashboard",
 ]
-INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
+# apps.dashboard comes first so its admin templates (sidebar, base_site) override Django's of the same name.
+INSTALLED_APPS = [
+    "apps.dashboard",
+    *DJANGO_APPS,
+    *THIRD_PARTY_APPS,
+    *[a for a in LOCAL_APPS if a != "apps.dashboard"],
+]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -115,6 +127,27 @@ ORDER_CANCEL_WINDOW_HOURS = env.int("ORDER_CANCEL_WINDOW_HOURS", default=24)
 
 # Online payments (Razorpay Payment Links). Keys come from the environment only; without them online
 # checkout answers 503 and a deploy check warns. PAYMENT_GATEWAY=fake is for tests.
+# Customer emails for order events (apps.notifications). Turn off with NOTIFICATIONS_ENABLED=false, e.g. in a
+# staging copy that holds real customer addresses.
+NOTIFICATIONS_ENABLED = env.bool("NOTIFICATIONS_ENABLED", default=True)
+
+# Seller details printed on invoices. Defaults are the business details published on the storefront; set
+# SELLER_GSTIN once registered (printed only when set). No tax is calculated: prices are shown as charged.
+SELLER = {
+    "name": env("SELLER_NAME", default="STEM ROBO HUB INDIA"),
+    "address": env(
+        "SELLER_ADDRESS", default="Ward 11, Magarlod, Main Road, Dhamtari, Chhattisgarh, 493662, India"
+    ),
+    "phone": env("SELLER_PHONE", default="+91 9407611779"),
+    "email": env("SELLER_EMAIL", default="stemrobohub@gmail.com"),
+    "gstin": env("SELLER_GSTIN", default=""),
+}
+
+# Email over Django SMTP when EMAIL_HOST is set, console otherwise (config/settings/mail.py). Defines
+# EMAIL_BACKEND, EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, EMAIL_USE_TLS, EMAIL_USE_SSL,
+# EMAIL_TIMEOUT, DEFAULT_FROM_EMAIL and SERVER_EMAIL.
+globals().update(email_settings(env, SELLER["name"]))
+
 PAYMENT_GATEWAY = env("PAYMENT_GATEWAY", default="razorpay")
 RAZORPAY_KEY_ID = env("RAZORPAY_KEY_ID", default="")
 RAZORPAY_KEY_SECRET = env("RAZORPAY_KEY_SECRET", default="")
@@ -122,6 +155,9 @@ RAZORPAY_WEBHOOK_SECRET = env("RAZORPAY_WEBHOOK_SECRET", default="")
 RAZORPAY_API_BASE = "https://api.razorpay.com/v1"
 # How long a payment link (and the stock reserved for it) stays valid. Razorpay's minimum is 15 minutes.
 PAYMENT_LINK_EXPIRY_MINUTES = env.int("PAYMENT_LINK_EXPIRY_MINUTES", default=30)
+
+# An order that is created but not paid within this window expires and its stock is released.
+ORDER_PAYMENT_DUE_MINUTES = env.int("ORDER_PAYMENT_DUE_MINUTES", default=60)
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"

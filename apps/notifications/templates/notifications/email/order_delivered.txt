@@ -1,0 +1,12 @@
+Hi {{ customer_name }},
+
+Your order {{ order.order_number }} has been delivered. Thank you for shopping with us!
+
+{% include "notifications/email/_summary.txt" %}
+{% if order.payment_method == "cod" %}Payment of Rs {{ order.total|floatformat:2 }} is complete (cash was collected on delivery).{% else %}Your payment of Rs {{ order.total|floatformat:2 }} was received online.{% endif %}
+
+If anything is not right with your parcel, reply to this email and we will help.
+
+View your order: {{ order_url }}
+
+{{ seller.name }}

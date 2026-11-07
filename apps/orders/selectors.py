@@ -5,7 +5,7 @@ from .models import Order
 
 def user_orders(user):
     """The user's orders, newest first (the only way views reach orders: other users' rows never appear)."""
-    return Order.objects.filter(user=user).prefetch_related("items")
+    return Order.objects.filter(user=user).prefetch_related("items", "charges", "payments")
 
 
 def get_user_order(user, order_id) -> Order:

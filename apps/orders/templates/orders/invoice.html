@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{% if invoices|length == 1 %}Invoice {{ invoices.0.invoice_number }}{% else %}Invoices{% endif %}</title>
+<style>
+  @page { size: A4; margin: 12mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #eef1f6; color: #1b2433; font: 13px/1.45 Inter, "Segoe UI", system-ui, Arial, sans-serif; }
+  .bar { position: sticky; top: 0; z-index: 2; display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 16px; background: #03244f; color: #fff; }
+  .bar a, .bar button { color: #fff; background: #fe6b03; border: 0; border-radius: 8px; padding: 8px 16px; font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; }
+  .bar a.back { background: transparent; border: 1px solid rgba(255,255,255,.5); }
+  .page { width: 210mm; min-height: 273mm; margin: 14px auto; padding: 14mm; background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.12); position: relative; page-break-after: always; break-after: page; }
+  .page:last-of-type { page-break-after: auto; break-after: auto; }
+  header.top { display: flex; justify-content: space-between; gap: 20px; border-bottom: 3px solid #03244f; padding-bottom: 12px; }
+  .seller h1 { margin: 0 0 4px; font-size: 20px; color: #03244f; letter-spacing: .02em; }
+  .seller p { margin: 1px 0; color: #4b5870; }
+  .doc { text-align: right; }
+  .doc h2 { margin: 0 0 6px; font-size: 22px; letter-spacing: .12em; color: #fe6b03; }
+  .doc table { margin-left: auto; border-collapse: collapse; }
+  .doc td { padding: 1px 0 1px 12px; }
+  .doc td:first-child { color: #4b5870; }
+  .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 14px 0; }
+  .box { border: 1px solid #d5dce8; border-radius: 6px; padding: 10px 12px; }
+  .box h3 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #4b5870; }
+  .box p { margin: 1px 0; }
+  table.items { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  table.items th { background: #03244f; color: #fff; text-align: left; padding: 7px 8px; font-size: 12px; }
+  table.items td { padding: 7px 8px; border-bottom: 1px solid #e4e9f1; vertical-align: top; }
+  .num { text-align: right; white-space: nowrap; }
+  .totals { margin: 10px 0 0 auto; width: 300px; border-collapse: collapse; }
+  .totals td { padding: 4px 8px; }
+  .totals tr.grand td { border-top: 2px solid #03244f; font-size: 15px; font-weight: 700; padding-top: 7px; }
+  .totals tr.due td { background: #fff4e8; font-weight: 700; color: #b24400; }
+  .words { margin: 12px 0; padding: 8px 10px; background: #f3f6fb; border-radius: 6px; }
+  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 10px; }
+  .cod { margin-top: 12px; padding: 10px 12px; border: 2px dashed #fe6b03; border-radius: 6px; font-weight: 700; text-align: center; }
+  .stamp { position: absolute; top: 46mm; right: 14mm; padding: 4px 14px; border: 3px solid #c62828; color: #c62828; font-size: 20px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; transform: rotate(-8deg); border-radius: 6px; }
+  footer.foot { position: absolute; left: 14mm; right: 14mm; bottom: 12mm; display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; border-top: 1px solid #d5dce8; padding-top: 8px; color: #4b5870; font-size: 11px; }
+  .sign { text-align: center; min-width: 150px; }
+  .sign div { height: 34px; border-bottom: 1px solid #1b2433; margin-bottom: 4px; }
+  @media print {
+    body { background: #fff; }
+    .bar { display: none; }
+    .page { width: auto; min-height: 0; height: 270mm; margin: 0; padding: 0; box-shadow: none; }
+    footer.foot { left: 0; right: 0; bottom: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="bar">
+  <span>{{ invoices|length }} invoice{{ invoices|length|pluralize }} · use <b>Print</b> and choose "Save as PDF" or your printer (A4)</span>
+  <span>{% if pdf_url %}<a class="back" href="{{ pdf_url }}">Download PDF</a> {% endif %}{% if back_url %}<a class="back" href="{{ back_url }}">← Back</a> {% endif %}<button type="button" onclick="window.print()">Print</button></span>
+</div>
+
+{% for inv in invoices %}
+{% with order=inv.order seller=inv.seller %}
+<section class="page">
+  {% if inv.not_for_dispatch %}<div class="stamp">{{ order.get_status_display }} · do not ship</div>{% endif %}
+
+  <header class="top">
+    <div class="seller">
+      <h1>{{ seller.name }}</h1>
+      <p>{{ seller.address }}</p>
+      <p>Phone: {{ seller.phone }} · {{ seller.email }}</p>
+      {% if seller.gstin %}<p><b>GSTIN:</b> {{ seller.gstin }}</p>{% endif %}
+    </div>
+    <div class="doc">
+      <h2>INVOICE</h2>
+      <table>
+        <tr><td>Invoice no.</td><td><b>{{ inv.invoice_number }}</b></td></tr>
+        <tr><td>Invoice date</td><td>{{ order.created_at|date:"d M Y" }}</td></tr>
+        <tr><td>Order no.</td><td>{{ order.order_number }}</td></tr>
+        <tr><td>Payment</td><td>{{ order.get_payment_method_display }} · {{ order.get_payment_status_display }}</td></tr>
+      </table>
+    </div>
+  </header>
+
+  <div class="parties">
+    <div class="box">
+      <h3>Bill to</h3>
+      <p><b>{{ inv.ship.name }}</b></p>
+      {% for line in inv.ship.lines %}<p>{{ line }}</p>{% endfor %}
+      <p>{{ inv.ship.city_line }}</p>
+      <p>Phone: {{ inv.ship.mobile }}</p>
+    </div>
+    <div class="box">
+      <h3>Ship to</h3>
+      <p><b>{{ inv.ship.name }}</b></p>
+      {% for line in inv.ship.lines %}<p>{{ line }}</p>{% endfor %}
+      <p>{{ inv.ship.city_line }}</p>
+      <p>Phone: {{ inv.ship.mobile }}</p>
+    </div>
+  </div>
+
+  <table class="items">
+    <thead><tr><th style="width:36px">#</th><th>Item</th><th class="num">Qty</th><th class="num">Unit price (₹)</th><th class="num">Amount (₹)</th></tr></thead>
+    <tbody>
+      {% for item in inv.items %}
+      <tr><td>{{ forloop.counter }}</td><td>{{ item.name }}</td><td class="num">{{ item.quantity }}</td><td class="num">{{ item.unit_price|floatformat:2 }}</td><td class="num">{{ item.amount|floatformat:2 }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <table class="totals">
+    <tr><td>Items total</td><td class="num">₹ {{ order.subtotal|floatformat:2 }}</td></tr>
+    {% for charge in inv.charges %}<tr><td>{{ charge.label }}</td><td class="num">₹ {{ charge.amount|floatformat:2 }}</td></tr>{% endfor %}
+    <tr class="grand"><td>Total</td><td class="num">₹ {{ order.total|floatformat:2 }}</td></tr>
+    {% if order.amount_paid %}<tr><td>Paid online</td><td class="num">− ₹ {{ order.amount_paid|floatformat:2 }}</td></tr>{% endif %}
+    {% if inv.cash_due %}<tr class="due"><td>Cash to collect on delivery</td><td class="num">₹ {{ inv.cash_due|floatformat:2 }}</td></tr>{% endif %}
+  </table>
+
+  <p class="words"><b>Amount in words:</b> {{ inv.in_words }}</p>
+
+  {% if inv.cash_due %}<div class="cod">CASH ON DELIVERY — collect ₹ {{ inv.cash_due|floatformat:2 }}</div>{% endif %}
+
+  <div class="meta">
+    <div class="box"><h3>Delivery</h3>
+      {% if order.courier_name or order.tracking_number %}
+        {% if order.courier_name %}<p>Delivery partner: <b>{{ order.courier_name }}</b></p>{% endif %}
+        {% if order.tracking_number %}<p>Tracking no.: <b>{{ order.tracking_number }}</b></p>{% endif %}
+      {% else %}<p>Tracking details will be shared after dispatch.</p>{% endif %}
+    </div>
+    <div class="box"><h3>Notes</h3>
+      <p>Please check the parcel on delivery and keep this invoice for warranty and returns.</p>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <div>This is a computer-generated invoice.<br>Thank you for shopping with {{ seller.name }}.</div>
+    <div class="sign"><div></div>Authorised signatory</div>
+  </footer>
+</section>
+{% endwith %}
+{% endfor %}
+</body>
+</html>

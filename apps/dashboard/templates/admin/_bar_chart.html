@@ -1,0 +1,10 @@
+{# bars: list of Bar(label, revenue, orders, height). Pure CSS columns; the title attribute is the hover tooltip. #}
+{# every_nth: show a label under every n-th column only (default every column) so crowded charts stay readable. #}
+<div class="rh-chart" role="img" aria-label="{{ title }}">
+  {% for bar in bars %}
+    <div class="rh-col" title="{{ bar.label }}: ₹{{ bar.revenue|floatformat:2 }} from {{ bar.orders }} order{{ bar.orders|pluralize }}">
+      <div class="rh-bar-wrap"><div class="rh-bar" style="height: {{ bar.height }}%"></div></div>
+      <span class="rh-label">{% if not every_nth or forloop.counter0|divisibleby:every_nth or forloop.last %}{{ bar.label }}{% endif %}</span>
+    </div>
+  {% endfor %}
+</div>

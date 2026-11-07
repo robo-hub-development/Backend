@@ -1,0 +1,8 @@
+Hi {{ customer_name }},
+
+Here is your invoice for order {{ order.order_number }}. A PDF copy is attached so you can save or print it.
+
+{% include "notifications/email/_invoice.txt" %}
+View your order: {{ order_url }}
+
+{{ seller.name }}

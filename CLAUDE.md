@@ -4,5 +4,6 @@ Backend stack: Python, Django, Django REST Framework, PostgreSQL (Celery/Redis o
 
 ## Engineering guidance
 - Always-on rules: @.claude/rules/backend-engineering.md
+- Email and notifications (any customer email, or code that triggers one): @.claude/rules/email-notifications.md
 - For implementing, reviewing, or optimizing backend work, use the `backend-engineer` skill (`.claude/skills/backend-engineer/SKILL.md`).
 - Read the PRD before inventing any business rule; ask if it is silent or ambiguous.

@@ -20,7 +20,14 @@ DEFAULTS = {
 def load(*names: str, **env: str) -> dict:
     """Return the named production settings for the given environment, or {"error": "<ExceptionName>"}."""
     clean = {k: v for k, v in os.environ.items() if k in {"PATH", "HOME", "LANG"}}
-    clean.update({"DJANGO_SETTINGS_MODULE": "config.settings.production", **DEFAULTS, **env})
+    clean.update(
+        {
+            "DJANGO_SETTINGS_MODULE": "config.settings.production",
+            "DJANGO_READ_DOTENV": "false",
+            **DEFAULTS,
+            **env,
+        }
+    )
     code = (
         "import json, sys\n"
         "try:\n"

@@ -1,0 +1,13 @@
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:14px 0;font-size:14px;">
+  <tr style="background:#f3f6fb;"><th align="left" style="padding:8px;">Item</th><th align="right" style="padding:8px;">Qty</th><th align="right" style="padding:8px;">Amount</th></tr>
+  {% for item in invoice.items %}
+  <tr><td style="padding:8px;border-bottom:1px solid #e4e9f1;">{{ item.name }}</td><td align="right" style="padding:8px;border-bottom:1px solid #e4e9f1;">{{ item.quantity }}</td><td align="right" style="padding:8px;border-bottom:1px solid #e4e9f1;">₹{{ item.amount|floatformat:2 }}</td></tr>
+  {% endfor %}
+  {% for charge in invoice.charges %}
+  <tr><td colspan="2" style="padding:8px;color:#5b6678;">{{ charge.label }}</td><td align="right" style="padding:8px;">₹{{ charge.amount|floatformat:2 }}</td></tr>
+  {% endfor %}
+  <tr><td colspan="2" style="padding:10px 8px;font-weight:bold;border-top:2px solid #03244f;">Total</td><td align="right" style="padding:10px 8px;font-weight:bold;border-top:2px solid #03244f;">₹{{ order.total|floatformat:2 }}</td></tr>
+  {% if order.amount_paid %}<tr><td colspan="2" style="padding:4px 8px;color:#5b6678;">Paid online</td><td align="right" style="padding:4px 8px;">₹{{ order.amount_paid|floatformat:2 }}</td></tr>{% endif %}
+  {% if invoice.cash_due %}<tr><td colspan="2" style="padding:4px 8px;font-weight:bold;color:#b24400;">Pay in cash on delivery</td><td align="right" style="padding:4px 8px;font-weight:bold;color:#b24400;">₹{{ invoice.cash_due|floatformat:2 }}</td></tr>{% endif %}
+</table>
+<p style="margin:0 0 6px;"><b>Delivering to:</b> {{ invoice.ship.name }}, {% for line in invoice.ship.lines %}{{ line }}, {% endfor %}{{ invoice.ship.city_line }}</p>
